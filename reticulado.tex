@@ -649,6 +649,152 @@ Note que converter de um tipo para outro, basta multiplicar ou dividir
 pelo valor correspondente ao número de casas decimais da notação em
 ponto fixo.
 
+Agora para pordermos ter uma interface com o tipo de dados padrão da
+linguagem C, vamos criar uma função de conversão que converte
+para \monoespaco{int}. Mais precisamente, nós armazenamos o valor
+numérico módulo o maior valor que cabe em um \monoespaco{int} mais
+um. E ignoramos a parte não-inteira. Além de converter
+para \monoespaco{int}, também devemos ler de um \monoespaco{int}.
+
+Caso estejamos usando como números os tipos básicos da linguagem C,
+então basta usarmos coerção de tipos:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define numero_de_int(r, a) (r = (numero) a)
+#define numero_real_de_int(r, a) (r = (double) a)
+#define numero_pra_int(r) ((int) r)
+#define numero_real_pra_int(r) ((int) r)
+#endif
+@
+\fimcodigo
+
+Caso estejamos usando GNU GMP, as funções que interagem
+com \monoespaco{int} são:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_MPZ)
+#define numero_de_int(r, a) mpz_set_si(r, a)
+#define numero_pra_int(r) ((int) mpz_get_si(r))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#define numero_real_pra_int(r) ((int) mpq_get_d(r))
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define numero_de_int(r, a) (mpq_set_d(r, (double) a))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#define numero_pra_int(r) ((int) mpq_get_d(r))
+#define numero_real_pra_int(r) ((int) mpq_get_d(r))
+#endif
+@
+\fimcodigo
+
+Mas e quanto a converter um número real (\monoespaco{mpq\_t}) para um
+inteiro? Neste caso, uma simples conversão é usar uma função para
+transformar ele em \monoespaco{double} e converter
+para \monoespaco{int}. Isso funciona se o tipo \monoespaco{int} tem 32
+bits ou menos, já que neste caso todos os valores de
+um \monoespaco{int} podems er representados corretamente por
+um \monoespaco{double}. Quando este não é o caso, devemos usar o
+método de conversão mais lento que primeiro converte
+um \monoespaco{mpq\_t} para um \monoespaco{mpz\_t} e então passa ele
+para inteiro. Método que deverá ficar em sua própria função:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if __SIZEOF_INT__ <= 4
+#define numero_real_pra_int(r) ((int) mpq_get_d(r))
+#else
+#define numero_real_pra_int(r) __numero_real_pra_int(r)
+#endif
+#endif
+@
+\fimcodigo
+
+Quando o tamanho de um inteiro é muito grande, vamos então precisar
+desta função adicional para fazer a conversão:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if __SIZEOF_INT__ > 4
+int __numero_real_pra_int(numero_real r);
+#endif
+#endif
+@
+\fimcodigo
+
+E a implementação da função:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if __SIZEOF_INT__ > 4
+int __numero_real_pra_int(numero_real r){
+  mpz_t aux, a;
+  int ret;
+  mpz_init(aux);
+  mpz_init(a);
+  mpq_get_num(a, r);
+  mpq_get_den(aux, r);
+  mpz_tdiv_q(a, a, aux);
+  ret = (int) mpz_get_ui(a);
+  mpz_clear(aux);
+  mpz_clear(a);
+  return ret;
+}
+#endif
+#endif
+@
+\fimcodigo
+
+Por fim, estas são as funções de conversão caso estejamos trabalhando
+com a bilbioteca OpenSSL:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_BN)
+#define numero_de_int(r, a) BN_set_word(r, a)
+#define numero_real_de_int(r, a) \
+          (BN_set_word(r, a) &&  \
+           BN_mul_word(r, (unsigned long) 1000000000000000000))
+#define numero_pra_int(r) ((int) BN_get_word(r))
+#endif
+@
+\fimcodigo
+
+Já obter um inteiro à partir de um número real envolve dividir este
+número real por 1.000.000.000.000.000.000 para descartar suas casas
+decimais e em seguida passálo para inteiro. Ter que realizar esta
+divisão nos força a implementar isso como uma função, não uma macro:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+#if defined(NUMERO_EH_BN)
+int numero_real_pra_int(numero_real r);
+#endif
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+#if defined(NUMERO_EH_BN)
+int numero_real_pra_int(numero_real r){
+  tint ret;
+  numero aux;
+  inicializa_numero(aux);
+  numero_de_numero_real(aux, r);
+  ret = numero_pra_int(aux);
+  finaliza_numero(aux);
+  return ret;
+}
+#endif
+@
+\fimcodigo
+
+
 
 
 % XXXX
