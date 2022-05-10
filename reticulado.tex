@@ -1,0 +1,2080 @@
+\font\seventeen=cmr17
+\font\twelve=cmr12
+\font\fonteautor=cmbx12
+\font\fonteemail=cmtt10
+\font\twelvenegit=cmbxti12
+\font\twelvebold=cmbx12
+\font\tenbold=cmbx10
+\font\trezebold=cmbx13
+\font\twelveit=cmsl12
+\font\monodoze=cmtt12
+\font\it=cmti12
+\voffset=0,959994cm % 3,5cm de margem superior e 2,5cm inferior
+\parskip=6pt
+
+\def\titulo#1{{\noindent\sixteen\hbox to\hsize{\hfill#1\hfill}}}
+\def\autor#1{{\noindent\fonteautor\hbox to\hsize{\hfill#1\hfill}}}
+\def\email#1{{\noindent\fonteemail\hbox to\hsize{\hfill#1\hfill}}}
+\def\negrito#1{{\tenbold#1}}
+\def\italico#1{{\twelveit#1}}
+\def\monoespaco#1{{\monodoze#1}}
+\def\iniciocodigo{\lineskip=0pt\parskip=0pt}
+\def\fimcodigo{\twelve\parskip=0pt plus 1pt\lineskip=1pt}
+
+%@* .
+
+\def\vec#1#2{{\tenbold #1}$_{#2}$}
+\def\mat#1{{\tenbold #1}}
+
+{\seventeen \hfil Criptografia Baseada em Reticulados}
+
+\vskip1cm
+
+A geometria dos números é um ramo da teoria dos números iniciado pelo
+matemático russo Hermann Minkowsky. Sua família havia fugido da Rússia
+czarista por causa da perseguição aos judeus e foi para a
+Alemanha. Bem antes da ascenção nazista ele obteve notável sucesso lá
+como matemático. Ele morreu em 1909 de apendicite e seu livro sobre o
+assunto foi publicado um ano após sua morte.
+
+À partir dele é desenvolvida posteriormente a criptografia baseada em
+reticulados ao longo da década de 1990. Tais técnicas criptográficas
+inicialmente não eram consideradas práticas, pois exigiam um gasto de
+memória muito maior comparada à criptografia de curvas elípticas e
+baseadas no RSA. Contudo, com o potencial de desenvolvimento de
+computadores quânticos, enquando as curvas elípticas e o RSA se
+tornariam inseguros em um cenário pós-quântico, a criptografia baseada
+em reticulados permaneceria segura até onde se sabe. Isso levou à um
+maior interesse por tais técnicas.
+
+Este texto lista a teoria necessária para compreender a criptografia
+baseada em reticulados e apresenta código C quando relevante para
+ilustrar algoritmos e estruturas de dados.
+
+\vskip0.5cm
+
+{\twelvebold \noindent 0. Números}
+
+Devemos começar este documento com um capítulo zero apenas para
+introduzir definições fundamentais que serão usadas nos capítulos
+seguintes. Iremos então explanar aqui tanto a notação que será usada
+no documento, mas também sobre alguns detalhes sobre como serão
+definidos e implementados os códigos presentes aqui.
+
+{\tenbold\noindent 0.1. Notação}
+
+Toda vez que formos representar um vetor, usaremos uma letra minúscula
+em negrito. Por exemplo, \vec{a}{1}, \vec{a}{2} e \vec{b}{} devem ser
+todos considerados vetores.
+
+Matrizes serão representadas por letras maiúsculas em negrito. Por
+exemplo: \mat{A}, \mat{B}.
+
+{\tenbold\noindent 0.2. Código}
+
+Um código em C será apresentado para descrever os algoritmos e
+definições que serão apresentados neste documento. Tal código não é
+apenas uma simples ilustração, mas pode ser extraído e compilado
+corretamente à partir deste documento. Ele pode ser todo extraído para
+um único arquivo que depois pode ser incluído por quem queira usar e
+testar aquilo que for definido aqui.
+
+Existem dois arquivos que serão gerados co código. O primeiro destes
+arquivos é o cabeçalho, o arquivo \monoespaco{reticulado.h} que deverá
+ser incluído em toda unidade de compilação que deseja usar nosso
+código. Ele irá conter a assinatura das funções e definições
+necessárias. E estará estruturado da seguinte forma:
+
+\iniciocodigo
+@(src/reticulado.h@>=
+#ifndef __RETICULADO_H_
+#define __RETICULADO_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
+@<Inclui Cabeçalhos (reticulado.h)@>
+@<Macros Gerais (reticulado.h)@>
+@<Estrutura de Dados (reticulado.h)@>
+@<Declaração de Função (reticulado.h)@>
+#ifdef __cplusplus
+}
+#endif
+#endif
+@
+\fimcodigo
+
+O segundo arquivo com código será o arquivo \monoespaco{reticulado.c}
+que terá a definição das funções e deverá ser compilado para depois
+ser ligado a programas que usam as funções definidas aqui:
+
+\iniciocodigo
+@(src/reticulado.c@>=
+#include "reticulado.h"
+@<Cabeçalhos Locais (reticulado.c)@>
+//@<Macros Locais (reticulado.c)@>
+//@<Estrutura de Dados Locais (reticulado.c)@>
+@<Variáveis Locais (reticulado.c)@>
+@<Declaração de Função Local Auxiliar (reticulado.c)@>
+@<Definição de Funções (reticulado.c)@>
+@
+\fimcodigo
+
+
+Por estarmos lidando com números ao falarmos de vetores e matrizes, é
+importante também que definamos o quê exatamente é um número. Em C,
+podemos usar tipos como \monoespaco{int} ou \monoespaco{long} para
+representar números. Contudo, há um limite de quão grande são os
+valores que podem caber em tais variáveis. Pode ser também que um
+usuário queira usar valores em ponto flutuante. Ou implementações de
+números de precisão arbitrária.
+
+Não faz parte do escopo deste documento e de seu código ditar para o
+usuário o quê será um número. Iremos dar várias opções para que o
+usuário explique o que é um número. Independente da escolha que for
+feita, o nosso código deverá funcionar.
+
+Uma das opções mais básicas de representação será o
+tipo \monoespaco{int}. Ela garante que números inteiros entre -32767 e
+32767 possam ser armazenados, embora na prática uma faixa bem maior de
+números pode ser representada nas arquiteturas e compiladores
+modernos. Contudo, caso precisemos expressar o resultado da computação
+em termos de números não-inteiros, este tipo não suporta isso. Por
+causa disso, se \monoespaco{int} for o modo pelo qual representaremos
+números, vamos criar também uma representação de números reais que
+será igual ao tipo \monoespaco{double}, descrito com mais detalhes
+mais adiante:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_INT)
+typedef int numero;
+typedef double numero_real;
+#endif
+@
+\fimcodigo
+
+O tipo \monoespaco{double} é uma forma padronizada de representar
+números em notação científica usando sempre 64 bits de memória. Desta
+forma, os números que podem ser representados não variam dependendo da
+arquitetura ou compilador, ao contrário do tipo \monoespaco{int}. Dos
+64 bits, um deles será usado para representar o sinal, 11 deles serão
+usados para representar o expoente na notação científica e 52 serão
+usadas para representar a parte fracionária. Representando cada um dos
+bits respectivamente como $s$, $e$ e $f$, o número que eles
+representam será dado por:
+
+$$
+(-1)^{s}\times(1,ffffffffffffffffffffffffffffffffffffffffffffffffffff)\times2^{eeeeeeeeeee}
+$$
+
+Este é um tipo que pode representar números não-inteiros, na teoria
+com precisão equivalente a 308 dígitos decimais, mas a precisão vai
+diminuindo à medida que operações são feitas com os números. De
+qualquer forma, se usarmos esta representação para os números, ela
+será usada tanto para representar números, como para representar
+números reais que podem ser não-inteiros:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_DOUBLE)
+typedef double numero;
+typedef double numero_real;
+#endif
+@
+\fimcodigo
+
+Outras opções de tipos de números serão oferecidas pela biblioteca GNU
+GMP. Ela é uma biblioteca de precisão arbitrária para números. Ela
+permite que representemos números inteiros com um número
+potencialmente infinito de dígitos, sendo o limite verdadeiro a
+quantidade de memória presente na máquina. Caso queremos que este tipo
+inteiro com precisão arbitrária seja a nossa definição de número,
+iremos usar então o tipo \monoespaco{mpz\_t} introduzido por esta
+biblioteca. E sendo assim, caso precisemos representar números
+não-inteiros, usaremos o \monoesoaco{mpq\_t}, um tipo capaz de
+representar números racionais:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ)
+#include <gmp.h> // Cabeçalho do GNU GMP
+typedef mpz_t numero;
+typedef mpq_t numero_real;
+#endif
+#endif
+@
+\fimcodigo
+
+Por outro lado, podemos usar o \monoespaco{mpq\_t} usado acima para
+números reais (na prática, números racionais) como sendo a nossa
+representação numérica. Este tipo funciona armazenando
+dois \monoespaco{mpz\_t}, um deles sendo o numerador e o outro um
+denominador de uma fração: 
+
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_MPQ)
+#include <gmp.h> // Cabeçalho do GNU GMP
+typedef mpq_t numero;
+typedef mpq_t numero_real;
+#endif
+@
+\fimcodigo
+
+A última representação numérica que iremos suportar é a da biblioteca
+OpenSSL, principalmente por ser uma biblioteca criptográfica
+tradicional. Ela também tem uma representação de inteiros com precisão
+arbitrária. Contudo, infelizmente ela não possui uma
+representação para números não-inteiros. Sendo assim, se formos
+representar números não-inteiros, vamos usar a mesma representação,
+mas iremos assumir que as últimas 18 casas decimais são a parte
+fracionária do número. É o que se chama de representação em ponto
+fixo.
+
+O número de 18 casas decimais é o escolhido, pois é o máximo de casas
+que podemos garantidamente representar em um \monoespaco{unsigned
+long}. Isso torna conveniente realizar a conversão e criar os números
+partindo de um literal do tipo \monoespaco{unsigned long} através das
+funções fornecidas pelo OpenSSL:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_BN)
+#include <openssl/bn.h> // A biblioteca de números grandes do OpenSSL
+typedef BIGNUM *numero;
+typedef BIGNUM *numero_real;
+#endif
+@
+\fimcodigo
+
+Os números das bibliotecas GNU GMP e OpenSSL precisam ser
+inicializados antes de serem usados, e também precisam ser finalizados
+depois do uso. Isso é necessário para que ocorra a alocação de memória
+necessária para seu uso. Tal inicialização não é necessária nos
+tipos \monoespaco{int} e \monoespaco{double}. De qualquer forma, vamos
+criar uma forma padronizada para inicializar todos os números e para
+que o código seja portável, ela sempre será usada, mesmo que estejamos
+representando números como \monoespaco{int} ou \monoespaco{double}.
+
+No caso de \monoespaco{int} e \monoespaco{double}, invocar a
+inicialização não tem efeito algum, é uma macro que será removida
+antes da compilação:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define inicializa_numero(n)
+#define finaliza_numero(n)
+#define inicializa_numero_real(n)
+#define finaliza_numero_real(n)
+#endif
+@
+\fimcodigo
+
+Se estivermos usando algum dos tipos do GNU GMP, aí sim, a nossa macro
+de inicialização será substituída pelo código adequado para
+inicializar tais números:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if defined(NUMERO_EH_MPZ)
+#define inicializa_numero(n) mpz_init(n)
+#define finaliza_numero(n) mpz_clear(n)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define inicializa_numero(n) mpq_init(n)
+#define finaliza_numero(n) mpq_clear(n)
+#endif
+#define inicializa_numero_real(n) mpq_init(n)
+#define finaliza_numero_real(n) mpq_clear(n)
+#endif
+@
+\fimcodigo
+
+E por fim, se estivermos usando o OpenSSL, substituímos pelas suas
+funções de inicialização. Note que aqui os nossos números são
+ponteiros para as estruturas que os armazenam, a inicialização deles
+ocorre por meio de uma atribuição do resultado da função que os aloca
+e retorna seus ponteiros:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define inicializa_numero(n) (n = BN_new())
+#define finaliza_numero(n) BN_clear_free(n)
+#define inicializa_numero_real(n) (n = BN_new())
+#define finaliza_numero_real(n) BN_clear_free(n)
+#endif
+@
+\fimcodigo
+
+Números podem ser somados. E também podemos querer obter o inverso de
+um número na operação de soma (o seu valor negativo). Podemos também
+querer subtrair um número. Em todas as representações que temos, a
+soma se comporta como se espera de uma operação de um grupo aditivo na
+maioria das representações. Contudo, a adição não é associativa para
+números em ponto flutuante devido a perda de precisão dependendo da
+diferença de magnitude entre operandos.
+
+Para tipos \monoespaco{int} e \monoespaco{double}, podemos somar e
+obter o negativo de um número somente usando os operadores da
+linguagem C, e isso é feito da mesma forma independente do tipo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define soma_numero(r, a, b) (r = a + b)
+#define subtrai_numero(r, a, b) (r = a - b)
+#define soma_numero_real(r, a, b) (r = a + b)
+#define subtrai_numero_real(r, a, b) (r = a - b)
+#define neg_numero(r, a) (r = -a)
+#define neg_numero_real(r, a) (r = -a)
+#endif
+@
+\fimcodigo
+
+As mesmas operações são definidas se estivermos usando GNU GMP. Mas
+agora as funções devem ser escolhidas a depender de estarmos lidando
+com um \monoespaco{mpz\_t} ou \monoespaco{mpq\_t}. Entretanto, elas
+funcionam da mesma forma e tem nomes parecidos:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if defined(NUMERO_EH_MPZ)
+#define soma_numero(r, a, b) mpz_add(r, a, b)
+#define subtrai_numero(r, a, b) mpz_sub(r, a, b)
+#define neg_numero(r, a) mpz_neg(r, a)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define soma_numero(r, a, b) mpq_add(r, a, b)
+#define subtrai_numero(r, a, b) mpq_sub(r, a, b)
+#define neg_numero(r, a) mpq_neg(r, a)
+#endif
+#define soma_numero_real(r, a, b) mpq_add(r, a, b)
+#define subtrai_numero_real(r, a, b) mpq_sub(r, a, b)
+#define neg_numero_real(r, a) mpq_neg(r, a)
+#endif
+@
+\fimcodigo
+
+
+No OpenSSL tudo funciona de maneira similar. Exceto que a função que
+torna um valor negativo é diferente. O OpenSSl não tem uma função que
+simplesmente inverte o sinal de um número, mas tem uma que torna o
+sinal negativo se o segundo parâmetro for diferente de zero e torna o
+sinal positivo se for igual a zero. E também, a função inverte o sinal
+no número indicado como argumento, ela não copia a resposta para uma
+outra variável. Por isso, para simular a função de inverter o sinal
+como ocorre nos outros ambientes, primeiro copiamos o número para a
+variável \monoespaco{r} e lá ajustamos o sinal, nos baseando se o
+valor dele já é negativo ou não:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define soma_numero(r, a, b) BN_add(r, a, b)
+#define subtrai_numero(r, a, b) BN_sub(r, a, b)
+#define soma_numero_real(r, a, b) BN_add(r, a, b)
+#define subtrai_numero_real(r, a, b) BN_sub(r, a, b)
+#define neg_numero(r, a) (BN_copy(r, a),                    \
+                          BN_set_negative(r, !BN_is_negative(r)))
+#define neg_numero_real(r, a) (BN_copy(r, a),                    \
+                               BN_set_negative(r, !BN_is_negative(r)))
+#endif
+@
+\fimcodigo
+
+A próxima operação numérica é a multiplicação. Ela forma um grupo
+multiplicativo na representação \monoespaco{mpq\_t}, mas não em
+outras. Para números em ponto-flutuante como \monoespaco{double}, a
+operação não é associativa. Para as representações inteiras, os
+números não possuem inverso multiplicativo (exceto o 1). Então só
+iremos oferecer uma função para obter inverso multiplicativo para
+números que podem não ser inteiros. Já a divisão, ao ser executada em
+valores inteiros, resultará no valor inteiro arredondado para baixo à
+partir do valor verdadeiro.
+
+Caso estejamos representando números como \monoespaco{int}
+e \monoespaco{double}, as operações relacionadas à multiplicação podem
+ser representadas através dos próprios operadores da linguagem C:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define multiplica_numero(r, a, b) (r = a * b)
+#define divide_numero(r, a, b) (r = a / b)
+#define multiplica_numero_real(r, a, b) (r = a * b)
+#define divide_numero_real(r, a, b) (r = a / b)
+#define inverso_numero_real(r, a) (r = (1.0/a))
+#endif
+@
+\fimcodigo
+
+Caso usemos as representações do GNU GMP, usamos as funções abaixo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if defined(NUMERO_EH_MPZ)
+#define multiplica_numero(r, a, b) mpz_mul(r, a, b)
+#define divide_numero(r, a, b) mpz_tdiv_q(r, a, b)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define multiplica_numero(r, a, b) mpq_mul(r, a, b)
+#define divide_numero(r, a, b) mpq_div(r, a, b)
+#endif
+#define multiplica_numero_real(r, a, b) mpq_mul(r, a, b)
+#define divide_numero_real(r, a, b) mpq_div(r, a, b)
+#define inverso_numero_real(r, a) mpq_inv(r, a)
+#endif
+@
+\fimcodigo
+
+Já no OpenSSL, as coisas são um pouco diferentes. Para evitar ter que
+fazer sucessivas alocações, a biblioteca pede que nós inicializemos e
+aloquemos um espaço inicial e depois passemos para ela este espaço
+para ser usado de maneira auxiliar em suas operações. No caso, a
+variável que armazenará o espaço auxiliar é:
+
+\iniciocodigo
+@<Variáveis Locais (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+static BN_CTX *bn_context;
+#endif
+@
+\fimcodigo
+
+Isso significa que vamos precisar de uma função de inicialização e
+finalização de nossa API:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+bool inicializa_api_reticulado(void);
+void finaliza_api_reticulado(void);
+@
+\fimcodigo
+
+Durante a inicialização, fazemos a alocação e inicialização do espaço
+auxiliar de memória, e na finalização, liberamos o espaço na memória:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool inicializa_api_reticulado(void){
+#if defined(NUMERO_EH_BN)
+  bn_context = BN_CTX_new();
+  if(bn_context == NULL)
+    return false;
+#endif
+  return true;
+}
+void finaliza_api_reticulado(void){
+#if defined(NUMERO_EH_BN)
+  BN_CTX_free(bn_context);
+#endif
+}
+@
+\fimcodigo
+
+Agora para multiplicar um número, ao invés de definirmos uma macro
+como fizemos nos outros casos, vamos declarar uma função
+verdadeira. Pois ela precisará acessar a variável estática auxiliar:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+void multiplica_numero(numero r, numero a, numero b);
+@
+\fimcodigo
+
+E agora faremos a multiplicação. Uma macro não poderia fazer isso,
+pois só temos acesso ao \monoespaco{bn\_context} de dentro do
+arquivo \monoespaco{reticulado.c}.
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+void multiplica_numero(numero r, numero a, numero b){
+  BN_mul(r, a, b, bn_context);
+}
+#endif
+@
+
+De posse desta função de multiplicação, agora sim podemos definir as
+macros que realização as funções relacionadas no OpenSSL:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define divide_numero(r, a, b) BN_div(r, NULL, a, b)
+#define multiplica_numero_real(r, a, b)  \
+        (multiplica_numero(r, a, b),    \
+         BN_div_word(r, 1000000000000000000lu))
+#define divide_numero_real(r, a, b) BN_div(r, NULL, a, b)
+#endif
+@
+\fimcodigo
+
+O que faltou foi a função de calcular o inverso multiplicativo de um
+número real em representação de ponto fixo. Isso também não será
+definido como macro, mas como função. Isso porque calcular isso requer
+uma variável auxiliar, e por isso será melhor representado como
+função:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+void inverte_numero_real(numero_real r, numero_real a);
+#endif
+@
+\fimcodigo
+
+Calcular o inverso de $n$ será calcular $1/n$. E para isso precisamos
+armazenar em uma variável o valor de 1 em representação de ponto fixo:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+void inverte_numero_real(numero_real r, numero_real a){
+  numero_real um;
+  inicializa_numero_real(um);
+  numero_real_de_int(um, 1);
+  divide_numero_real(r, um, a);
+  destroi_numero_real(um);
+}
+#endif
+@
+\fimcodigo
+
+É importante poder realizar conversões entre números. Podemos querer
+apenas copiar números e números reais e converter de um pra outro. As
+macros que farão isso caso estejamos lidando com os tipos básicos de C
+como números são:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#if defined(NUMERO_EH_INT)
+#define numero_de_numero_real(r, a) (r = (int) a)
+#endif
+#if defined(NUMERO_EH_DOUBLE)
+#define numero_de_numero_real(r, a) (r = a)
+#endif
+#define numero_real_de_numero(r, a) (r = (double) a)
+#define copia_numero(r, a) (r = a)
+#define copia_numero_real(r, a) (r = a)
+#endif
+@
+\fimcodigo
+
+Já converter destes entre estes dois tipos e copiar usando o GNU GMP
+funciona com o código abaixo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if defined(NUMERO_EH_MPZ)
+#define numero_real_de_numero(r, a) mpq_set_z(r, a)
+#define copia_numero(r, a) mpz_set(r, a)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define numero_real_de_numero(r, a) mpq_set(r, a)
+#define copia_numero(r, a) mpq_set(r, a)
+#define numero_de_numero_real(r, a) mpq_set(r, a)
+#endif
+#define copia_numero_real(r, a) mpq_set(r, a)
+#endif
+@
+\fimcodigo
+
+A função que falta é a que converte de um número real para um número,
+quando consideramos o \monoespaco{mpz\_q} como sendo número e
+o \monoespaco{mpq\_t} como número real. A primeira tentativa de
+implementar isso seria converter a entrada para \monoespaco{double}
+usando \monoespaco{mpq\_get\_d}, converter o resultado
+para \monoespaco{unsigned int} e em seguida passar
+para \monoespaco{mpz\_t}. Entretanto, essa operação é sujeita a
+erros. Podemos ter um número grande ou pequeno demais que não pode ser
+convertido para \monoespaco{double} ou \monoespaco{unsigned int}. A
+forma correta de fazer a conversão é obter separadamente o numerador e
+denominador do \monoespaco{mpq\_t} e realizar a divisão. Como esta
+operação é um pouco mais complexa, será definida como uma função, não
+como uma macro. A assinatura da função é:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ)
+void numero_de_numero_real(numero_real r, numero a);
+#endif
+@
+\fimcodigo
+
+E sua implementação:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_MPZ)
+void numero_de_numero_real(numero_real r, numero a){
+  mpz_t aux;
+  mpz_init(aux);
+  mpq_get_num(r, a);
+  mpq_get_den(aux, a);
+  mpz_tdiv_q(r, r, aux);
+  mpz_clear(aux);
+}
+#endif
+@
+\fimcodigo
+
+Já se estivermos trabalhando com OpenSSL e seus tipos \monoespaco{BN},
+usamos as macros abaixo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_BN)
+#define copia_numero(r, a) BN_copy(r, a)
+#define copia_numero_real(r, a) BN_copy(r, a)
+#define numero_real_de_numero(r, a) \
+          (BN_copy(r, a) &&         \
+          BN_mul_word(r, (unsigned long) 1000000000000000000lu))
+#define numero_de_numero_real (r, a) \
+          (BN_copy(r, a) &&          \
+           BN_div_word(r, 1000000000000000000lu))
+#endif
+@
+\fimcodigo
+
+Note que converter de um tipo para outro, basta multiplicar ou dividir
+pelo valor correspondente ao número de casas decimais da notação em
+ponto fixo.
+
+
+
+% XXXX
+
+
+% Número de número real quando número é inteiro
+
+
+Também podemos querer converter de \monoespaco{int} para
+números, de \monoespaco{int} para números reais,
+de \monoespaco{double} para números, de \monoespaco{double} para
+números reais, ou ainda passar de número pra \monoespaco{int}
+ou \monoespaco{double}, ou de número real para \monoespaco{int}
+ou \monoespaco{double}.
+
+Caso estejamos usando como números os tipos básicos \monoespaco{int}
+e \monoespaco{double}, podemos lidar com todas as conversões fazendo
+um ``casting'' de variáveis:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#if defined(NUMERO_EH_INT)
+#define numero_de_int(r, a) (r = a)%
+#define numero_de_double(r, a) (r = (int) a)
+#endif
+#if defined(NUMERO_EH_DOUBLE)
+#define numero_de_int(r, a) (r = (double) a)%
+#define numero_de_double(r, a) (r = a)
+#endif
+#define numero_real_de_int(r, a) (r = (double) a)%
+#define numero_real_de_double(r, a) (r = a)
+#define numero_pra_int(r) ((int) r)%
+#define numero_pra_double(r) ((double) r)
+#define numero_real_pra_double(r) ((double) r)
+#define numero_real_pra_int(r) ((int) r)
+#endif
+@
+\fimcodigo
+
+Converter e copiar os diversos tipos usando o GNU GMP funciona com as
+funções abaixo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ)
+#define numero_de_numero_real XXX
+#define numero_de_int(r, a) mpz_set_si(r, a)
+#define numero_pra_int(r) ((int) mpz_get_si(r))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define numero_de_int(r, a) (mpq_set_d(r, (double) a))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#define numero_pra_int(r) ((int) mpq_get_d(r))
+#endif
+@
+\fimcodigo
+
+
+% TODO: Ajustar aqui.
+
+
+As operações de comparação também devem ser definidas:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define numero_eh_igual_int(r, a) (r == a)
+#endif
+@
+\fimcodigo
+
+
+Tambrém precisamos de macros para copiar uma variável de número para
+outra. E para ler um número de um \monoespaco{int} e também para
+um \monoespaco{int}, e também fazer conversões de tipo:
+
+
+
+
+
+
+Aqui é como comparamos númeoros:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#define numero_real_eh_igual_int(r, a) (mpq_cmp_si(r, a, 1) == 0)
+#define numero_real_pra_double(r) (mpq_get_d(r))
+#endif
+#if defined(NUMERO_EH_MPZ)
+#define numero_eh_igual_int(r, a) (mpz_cmp_si(r, a) == 0)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define numero_eh_igual_int(r, a) (mpq_cmp_si(r, a, 1) == 0)
+#endif
+@
+\fimcodigo
+
+
+Para copiar e converter números de \monoespaco{int}, usamos a função:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ)
+#define copia_numero(r, a) mpz_set(r, a)
+#define numero_de_int(r, a) mpz_set_si(r, a)
+#define numero_pra_int(r) ((int) mpz_get_si(r))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#define copia_numero_pra_real(r, a) mpq_set_z(r, a)
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define copia_numero(r, a) mpq_set(r, a)
+#define numero_de_int(r, a) (mpq_set_d(r, (double) a))
+#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
+#define numero_pra_int(r) ((int) mpq_get_d(r))
+#define copia_numero_pra_real(r, a) mpq_set(r, a)
+#endif
+@
+\fimcodigo
+
+
+Alternativamente, podemos querer representar números usando a
+biblioteca BIGNUM do OpenSSL. Um problema desta biblioteca é que ela
+não possui uma representação para números não-inteiros de precisão
+arbitrária. Por causa disso, vamos representar um número real neste
+caso como sendo um número de ponto fixo, onde as 19 casas decimais
+finais representam dígidos após a vírgula na representação.
+
+
+
+E as operações básicas no OpenSSL:
+
+
+As funções de comparação vem a seguir. Comparar um número em ponto
+fixo com um inteiro é complexo demais para se fazer em uma macro e
+para isso usamos uma função:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define numero_eh_igual_int(r, a) BN_is_word(r, a)
+#endif
+@
+\fimcodigo
+
+Mas para fazer comparações entre números reais e inteiros, precisamos
+fazer operações mais complexas do que é confortável de expressar em
+uma macro. Neste caso, teremos que definir uma função:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+bool numero_real_eh_igual_int(numero_real r, int a);
+#endif
+@
+\fimcodigo
+
+A comparação é feita convertendo o inteiro para a representação em
+ponto fixo que usamos e então usando as funções de comparação:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+bool numero_real_eh_igual_int(numero_real r, int a){
+  BIGNUM *tmp;
+  int mod;
+  bool result;
+  tmp = BN_new();
+  BN_set_word(tmp, a);
+  BN_mul_word(tmp, 1000000000000000000lu);
+  result = (BN_cmp(tmp, r) == 0);
+  BN_clear_free(tmp);
+  return result;
+}
+#endif
+@
+
+Como estamos usando o tipo \monoespaco{bool}, introduzido na linguagem
+C99, teremos que incluir também o cabeçalho que a ativa:
+
+\iniciocodigo
+@<Inclui Cabeçalhos (reticulado.h)@>=
+#include <stdbool.h>
+@
+\fimcodigo
+
+
+E por fim as funções de copiar números e convertê-los de e
+para \monoespaco{int} e também para \monoespaco{double} no caso de
+número real em ponto fixo:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define copia_numero(r, a) BN_copy(r, a)
+#define numero_de_int(r, a) BN_set_word(r, a)
+#define numero_real_de_int(r, a) \
+          (BN_set_word(r, a) &&  \
+           BN_mul_word(r, (unsigned long) 1000000000000000000))
+#define numero_pra_int(r) ((int) BN_get_word(r))
+#define copia_numero_pra_real(r, a) \
+          (BN_copy(r, a) &&         \
+          BN_mul_word(r, (unsigned long) 1000000000000000000))
+#endif
+@
+\fimcodigo
+
+Será importante criar também uma função de inicialização que deve ser
+usada antes de qualquer outra e uma de finalização que deve ser a
+última a ser executada. Isso permite a nós fazer alocações iniciais se
+for necessário. Por exemplo, no caso das funções do OpenSSL, a
+biblioteca pede que para algumas funções passemos um contexto
+previamente alocado e ela faz isso para evitar fazer alocações
+intermediárias.
+
+Assim, teremos um contexto declarado localmente para tais casos:
+
+
+Esta é a nossa função de inicialização e a de finalização:
+
+
+A função de inicialização retorna falso se a inicialização falhar. A
+definição delas é:
+
+
+O contexto de alocação do OpenSSL é necessário na função de
+multiplicação:
+
+
+Que é definida como:
+
+
+Converter um número real de ponto fixo para um \monoespaco{double}
+requer realizar divisões e para isso também usamos o contexto:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+double numero_real_pra_double(numero_real r);
+#endif
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+double numero_real_pra_double(numero_real r){
+  BIGNUM *divisao, *resto, *dividendo;
+  int mod;
+  double frac;
+  divisao = BN_new();
+  resto = BN_new();
+  dividendo = BN_new();
+  BN_set_word(dividendo, 1000000000000000000lu);  
+  BN_div(divisao, resto, r, dividendo, bn_context);
+  frac = (((double) BN_get_word(resto)) / 1000000000000000000.0);
+  if(BN_num_bytes(divisao) > sizeof(unsigned long)){
+    BN_clear_free(divisao);
+    BN_clear_free(resto);
+    BN_clear_free(dividendo);
+    return INFINITY;
+  }
+  frac += ((double) BN_get_word(divisao));
+  BN_clear_free(divisao);
+  BN_clear_free(resto);
+  BN_clear_free(dividendo);
+  return frac;  
+}
+#endif
+@
+
+Como podemos retornar \monoespaco{INFINITY}, devemos inserir o
+cabeçalho matemático:
+
+\iniciocodigo
+@<Inclui Cabeçalhos (reticulado.h)@>=
+#include <math.h>
+@
+\fimcodigo
+
+Por fim, vamos definir também a função para inverter um número real
+representado em notação d eponto fixo:
+
+
+
+{\twelvebold \noindent 1. Preliminares: Matrizes}
+
+Matrizes surgem historicamente como formas de representar e resolvr
+sistemas de equações lineares. Por exemplo:
+
+$2x-y=0$
+
+$-x+2y=3$
+
+Acima temos um sistema de equações com duas variáveis
+desconhecidas. Poderíamos por exemplo resolvê-la tratando ambas como
+duas equações de retas e encontrando o ponto $(x, y)$ que pertence a
+ambas as retas.
+
+O sistema pode ainda ser representado como:
+
+$$x\left[{2\atop-1}\right]+y\left[-1\atop 2\right]=\left[0\atop3\right]$$
+
+O problema a ser resolvido é o mesmo. Mas agora podemos interpretar o
+problema não como descobrir o encontro de duas retas, mas como
+encontrar a combinação linear entre dois vetores $(2, -1)$ e $(-1, 2)$
+para que assim nós obtenhamos o terceiro vetor $(0, 3)$.
+
+De fato, combinando os dois vetores da maneira correta, obtendo
+valores reais adequados para $x$ e $y$, qualquer outro vetor poderia
+ser obtido. Mas isso não é verdade para dois vetores quaisquer. Se
+tivermos dois vetores iguais, se um deles for nulo, ou se ambos
+apontarem na mesma direção, não seria possível encontrar combinação
+linear que corresponda a todo e qualquer vetor como resultado.
+
+Apenas encarando o mesmo problema de uma forma diferente, usando
+vetores ao invés de equação de retas, pudemos encontrar
+questionamentos e observar propriedades novas sobre vetores serem
+linearmente independentes ou não.
+
+Outra forma de encararmos o mesmo problema, mas de uma maneira
+diferente é tratarmos ele na forma de matrizes:
+
+$$
+\left[{2 \atop -1}{-1\atop 2}\right]\left[{x\atop y}\right]=\left[{0\atop 3}\right]
+$$
+
+Como representamos matrizes como letras mai\-ús\-cu\-las em negrito e
+vetores como letras mi\-nús\-cu\-las em negrito, então todo sistema de
+equações lineares pode ser escrita como:
+
+\mat{A}\vec{x}{}=\vec{b}{}
+
+No problema inicial mostrado acima nas três formas, tínhamos duas
+equações com duas variáveis desconhecidas. E se tivéssemos nove ou
+mais equações com nove ou mias variáveis desconhecidas? Tratar isso
+como uma equação de reta ou de figura geométrica é inviável quando o
+número de dimensões é maior que 3, e desconfortável mesmo quando temos
+mais de 2 dimensões. Tratar como vetores e combinação linear traz a
+mesma dificuldade, pois vetores de muitas dimensões são também
+difíceis de visualizar. Já a representação matricial desiste de
+representar o problema de qualquer forma geométrica. Nós ainda estamos
+lidando com um problema geométrico de nove dimensões, mas esscolhemos
+representar ele com uma matriz de nove dimensões. E lidando com ela
+apenas iremos aplicar operações conhecidas para resolvê-lo, sem
+qualquer pretensão de imaginar ou visualizar um espaço de nove
+dimensões.
+
+Iremos então analizar as regras algébricas e operações de matrizes que
+serão úteis para mapearmos estes problemas geométricos, pois
+aprendendo e descobrindo elas, nós cobriremos com sucesso a lacuna em
+nossa capacidade imaginativa de visualizar tantas dimensões.
+
+Mas como representar matrizes em código C? Vimos acima exemplos de
+matrizes quadradas, de duas linhas e duas colunas, bem como exemplos
+de matrizes com uma coluna e duas linhas. Matrizes poderão ter
+qualquer número inteiro positivo de linhas e colunas. Então uma matriz
+é uma estrutura formada por quantas linhas e colunas ela tem e pelo
+valor numérico em si de seus elementos. Essa é a forma inicial pela
+qual iremos representar matrizes:
+
+\iniciocodigo
+@<Estrutura de Dados (reticulado.h)@>=
+struct matriz{
+  int linhas, colunas;
+  numero *valores;
+};
+@
+\fimcodigo
+
+Pode ser que queiramos gerar também como resultado ou em etapas
+intermediárias de nosso código matrizes que representem números
+não-inteiros, mesmo que nossas matrizes típicas sejam inteiras. Para
+isso, teremos também o segundo tipo de matriz:
+
+\iniciocodigo
+@<Estrutura de Dados (reticulado.h)@>=
+struct matriz_real{
+  int linhas, colunas;
+  numero_real *valores;
+};
+@
+\fimcodigo
+
+
+Note que estamos armazenando todos os valores da matriz em uma
+sequência de memória de uma só dimensão. Fazemos isso para deixar o
+armazenamento mais eficiente do conteúdo das matrizes. Mas para
+podermos ler e escrever o conteúdo da matriz, vamos definir as
+seguintes macros que irão nos ajudar:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+// i: Valor da linha     // j: Valor da coluna
+#define le_matriz(A, i, j) A -> valores[i * A -> colunas + j]
+#define escreve_matriz(A, i, j, v)                    \
+        copia_numero(A -> valores[i * A -> colunas + j], v)
+#define escreve_matriz_int(A, i, j, v)                \
+        numero_de_int(A -> valores[i * A -> colunas + j], v)
+@
+\fimcodigo
+
+Para criar uma nova matriz, haverão três tipos de opções: criar uma
+nova matriz cujo conteúdo é indicado por ``array'' de valores passados
+como argumento, criar uma matriz identidade de determinado tamanho ou
+criar uma matriz nula. Para tratar estes três tipos de construção,
+vamos definir uma função auxiliar interna. Se o array passado para ela
+não for nulo, então ela criará uma nova matriz com os valores passados
+para ela (caso 1). Se não, caso a matriz tenha o mesmo número de
+linhas e colunas e o último argumento para ela for 1, será criada uma
+matriz identidade (caso 2). Nos demais casos, será uma matriz nula
+(caso 3). A função deverá retornar a matriz criada, ou então NULL se
+ela falhar por não haver memória:
+
+\iniciocodigo
+@<Declaração de Função Local Auxiliar (reticulado.c)@>=
+struct matriz *nova_matriz_aux(int linha, int coluna, numero *valores,
+                               int t){
+  struct matriz *nova;
+  nova = (struct matriz *) malloc(sizeof(struct matriz));
+  if(nova != NULL){
+    int i, j, total = linha * coluna;
+    nova -> linhas = linha;
+    nova -> colunas = coluna;
+    nova -> valores = (numero *) malloc(sizeof(numero) * total);
+    if(nova -> valores == NULL){
+      free(nova);
+      return NULL;
+    }
+    if(valores != NULL){ // Caso 1: Constrói matriz com valores indicados
+      for(i = 0; i < total; i ++){
+        inicializa_numero(nova -> valores[i]);
+        copia_numero(nova -> valores[i], valores[i]);
+      }
+    }
+    else if(linha == coluna && t == 1){ // Caso 2: Matriz identidade
+      for(i = 0; i < linha; i ++)
+        for(j = 0; j < coluna; j ++){
+          inicializa_numero(le_matriz(nova, i, j));
+          if(i == j)
+            escreve_matriz_int(nova, i, j, 1);
+          else
+            escreve_matriz_int(nova, i, j, 0);
+        }
+    }
+    else{ // Caso 3: Matriz nula
+      for(i = 0; i < total; i ++){
+        inicializa_numero(nova -> valores[i]);
+        numero_de_int(nova -> valores[i], 0);
+      }
+    }
+  }
+  return nova;
+}
+@
+\fimcodigo
+
+Como estamos usando a função \monoespaco{malloc}, devemos incluir seu
+cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Locais (reticulado.c)@>=
+#include <stdlib.h>
+@
+\fimcodigo
+
+Mas esta é só uma função auxiliar interna. Na prática, para criar
+novas matrizes usaremos as seguintes funções que usam a função acima:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+struct matriz *nova_matriz(int linha, int coluna, numero *valores);
+struct matriz *nova_matriz_nula(int linha, int coluna);
+struct matriz *nova_matriz_identidade(int dim);
+@
+\fimcodigo
+
+E a definição das funções acima será baseada na função auxiliar que
+fizemos:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+struct matriz *nova_matriz(int linha, int coluna, numero *valores){
+  return nova_matriz_aux(linha, coluna, valores, 0);
+}
+struct matriz *nova_matriz_nula(int linha, int coluna){
+  return nova_matriz_aux(linha, coluna, NULL, 0);
+}
+struct matriz *nova_matriz_identidade(int dim){
+  return nova_matriz_aux(dim, dim, NULL, 1);
+}
+@
+\fimcodigo
+
+E finalmente, para finalizarmos uma matriz, usaremos o seguinte
+destrutor:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+void destroi_matriz(struct matriz *A);
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+void destroi_matriz(struct matriz *A){
+  int i, total = A -> linhas * A -> colunas;
+  for(i = 0; i < total; i ++){
+    finaliza_numero(A -> valores[i]);
+  }
+  free(A -> valores);
+  free(A);
+}
+@
+\fimcodigo
+
+Mas e as matrizes reais? Como elas são um tipo auxiliar pensado para
+ser usado internamente ou para armazenar resultado de outras operações
+(por exemplo, quando resolvemos um sistema de equações, mesmo quando
+todos os coeficientes são inteiros, a solução pode ser não-inteira e
+recisa ser armazenada em uma matriz real), só iremos oferecer um tipo
+de construtor para ela. Um que converte uma matriz para uma matriz
+real:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+struct matriz_real *nova_matriz_real(struct matriz *A);
+void destroi_matriz_real(struct matriz_real *A);
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+struct matriz_real *nova_matriz_real(struct matriz *A){
+  int i, total = A -> linhas * A -> colunas;
+  struct matriz_real *nova;
+  nova = (struct matriz_real *) malloc(sizeof(struct matriz_real));
+  if(nova == NULL)
+    return NULL;
+  nova -> linhas = A -> linhas;
+  nova -> colunas = A -> colunas;
+  nova -> valores = (numero_real *) malloc(sizeof(numero_real) * total);
+  if(nova -> valores == NULL){
+    free(nova);
+    return NULL;
+  }
+  for(i = 0; i < total; i ++){
+    inicializa_numero_real(nova -> valores[i]);
+    copia_numero_pra_real(nova -> valores[i], A -> valores[i]);
+  }
+  return nova;
+}
+@
+\fimcodigo
+
+Já o destrutor de matrizes reais será idêntico à das matrizes comuns:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+void destroi_matriz_real(struct matriz_real *A){
+  int i, total = A -> linhas * A -> colunas;
+  for(i = 0; i < total; i ++){
+    finaliza_numero_real(A -> valores[i]);
+  }
+  free(A -> valores);
+  free(A);
+}
+@
+\fimcodigo
+
+
+{\tenbold\noindent 1.1. Soma de Matrizes}
+
+Podemos somar matrizes e tal operação forma um grupo abeliano: a ordem
+da soperações não muda o resultado ($(a+b)+c = a+(b+c)$), há um
+elemento identidade ($a+0=a$), há um elemento inverso $a+(-a)=0$ e
+comutatividade. A soma de matrizes pode ser feita pela seguinte
+operação:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool soma_matriz(struct matriz *A, struct matriz *B, struct matriz *C);
+@
+\fimcodigo
+
+A função declarada acima pode falhar caso as dimensões de $A$, $B$ e
+$C$ não sejam as mesmas. Nestes casos, retorna-se falso e nos demias
+retorna-se verdadeiro. Se a operação for possível e não falhar, a
+matriz $A$ será modificada para armazenar a soma $B+C$. Somar matrizes
+é simplesmente somar cada um de seus elementos:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool soma_matriz(struct matriz *A, struct matriz *B, struct matriz *C){
+  int i, total = A -> linhas * A -> colunas;
+  if(A -> linhas != B -> linhas || A -> linhas != C -> linhas)
+    return false;
+  if(A -> colunas != B -> colunas || A -> linhas != C -> colunas)
+    return false;
+  for(i = 0; i < total; i ++)
+    soma_numero(A -> valores[i], B -> valores[i], C -> valores[i]);
+  return true;
+}
+@
+\fimcodigo
+
+{\tenbold\noindent 1.2. Multiplicação de Matrizes}
+
+Assumindo que temos duas matrizes abaixo:
+
+$$
+A=\left[{{a_{11}\atop a_{21}}\atop{\ldots\atop a_{m1}}}
+{{a_{12}\atop a_{22}}\atop{\ldots\atop a_{m2}}}
+{{\ldots\atop \ldots}\atop{\ldots\atop \ldots}}
+{{a_{1n}\atop a_{2n}}\atop{\ldots\atop a_{mn}}}
+\right]
+B=\left[{{a_{11}\atop a_{21}}\atop{\ldots\atop a_{n1}}}
+{{a_{12}\atop a_{22}}\atop{\ldots\atop a_{n2}}}
+{{\ldots\atop \ldots}\atop{\ldots\atop \ldots}}
+{{a_{1p}\atop a_{2p}}\atop{\ldots\atop a_{np}}}
+\right]
+$$
+
+Definimos a multiplicação das duas matrizes como:
+
+$$
+A\times B = \left[{{a_{11}b_{11}+\ldots+a_{1n}b_{n1}\atop
+a_{21}b_{11}+\ldots+a_{2n}b_{n1}}\atop{\ldots\atop
+a_{m1}b_{11}+\ldots+a_{mn}b_{n1}}}
+{{a_{11}b_{12}+\ldots+a_{1n}b_{n2}\atop
+a_{21}b_{12}+\ldots+a_{2n}b_{n2}}\atop{\ldots\atop
+a_{m1}b_{12}+\ldots+a_{mn}b_{n2}}}
+{{\ldots\atop \ldots}\atop{\ldots\atop \ldots}}
+{{a_{11}b_{1p}+\ldots+a_{1n}b_{np}\atop
+a_{21}b_{1p}+\ldots+a_{2n}b_{np}}\atop{\ldots\atop
+a_{m1}b_{1p}+\ldots+a_{mn}b_{np}}}
+\right]
+$$
+
+Multiplicar matrizes pode ser feita usando o algoritmo ingênuo que
+itera sobre todas as $mp$ posições da matriz resultante e para cada
+uma faz $n$ iterações computando multiplicações e somando. Obtemos
+então complexidade de $O(mnp)$ multiplicações. No caso de matrizes
+quadradas de $n$ dimensões, isso significa $O(n^3)$ multiplicações.
+
+Há algoritmos com complexidade menor, mas por hora vamos definir o
+algoritmo mais ingênuo descrito acima:
+
+\iniciocodigo
+@<Declaração de Função Local Auxiliar (reticulado.c)@>+=
+bool multiplica_simples_matriz(struct matriz *A, struct matriz *B,
+                               struct matriz *C);
+@
+\fimcodigo
+
+Chamamos esta função de ``simples'' porque a função usa o algoritmo
+ingênuo $O(n^3)$, mas que é o que apresenta o melhor desempenho pra
+matrizes mais simples que forem suficientemente pequenas. A sua
+definição é:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool multiplica_simples_matriz(struct matriz *A, struct matriz *B,
+                               struct matriz *C){
+  struct matriz *resultado = A;
+  if(A -> linhas != B -> linhas || A -> colunas != B -> colunas)
+    return false;
+  if(A == B || A == C){
+    resultado = nova_matriz_nula(A -> linhas, A -> colunas);
+    if(resultado == NULL)
+      return false;
+  }
+  {
+    int m, n, p;
+    numero tmp;
+    inicializa_numero(tmp);
+    for(m = 0; m < resultado -> linhas; m ++)
+      for(p = 0; p < resultado -> colunas; p ++){
+        numero_de_int(le_matriz(resultado, m, p), 0);
+        for(n = 0; n < B -> colunas; n ++){
+          multiplica_numero(tmp, le_matriz(B, m, n), le_matriz(C, n, p));
+          soma_numero(le_matriz(resultado, m, p),
+                      le_matriz(resultado, m, p), tmp);
+        }
+      }
+    finaliza_numero(tmp);
+  }
+  if(resultado != A){
+    int total = A -> linhas * A -> colunas;
+    memcpy(A -> valores, resultado -> valores, sizeof(numero) * total);
+    destroi_matriz(resultado);
+  }
+  return true;
+}
+@
+\fimcodigo
+
+Como estamos usando a função \monoespaco{memcpy}, devemos inserir a
+seguinte biblioteca:
+
+\iniciocodigo
+@<Inclui Cabeçalhos (reticulado.h)@>=
+#include <string.h>
+@
+\fimcodigo
+
+Como este nem sempre é o algoritmo mais eficiente para calcular a
+multiplicação de matrizes, vamos deixar em aberto a possibilidade de
+incrementar a nossa API com ouros algoritmos que podem ser mais
+eficientes que ele em determinado contexto. Primeiro vamos criar uma
+lista de ponteiros para funções de multiplicação:
+
+\iniciocodigo
+@<Variáveis Locais (reticulado.c)@>+=
+static bool (*funcoes_multiplicacao_matricial[])(struct matriz *,
+                                                struct matriz *,
+                                                struct matriz *) =
+  {
+    //@<Lista de Funções de Multiplicação de Matrizes@>
+    NULL
+  };
+@
+\fimcodigo
+
+A ideia é que essa lista armazene todas as outras futuras funções de
+multiplicação de matrizes que implementarmos aqui.
+
+Elém disso, vamos definir também uma lista de funções de predicado,
+que dadas três matrizes, retorne verdadeiro ou falso, dizendo se cada
+uma das funções deve ser usada ou não:
+
+\iniciocodigo
+@<Variáveis Locais (reticulado.c)@>+=
+static bool (*predicado_multiplicacao_matricial[])(struct matriz *,
+                                                  struct matriz *,
+                                                  struct matriz *) =
+  {
+    //@<Lista de Predicados de Multiplicação de Matrizes@>
+    NULL
+  };
+@
+\fimcodigo
+
+A ideia é que na nossa verdadeira função de multiplicação, nós iremos
+percorrer simultaneamente ambas as listas testando os
+predicados. Assim que um deles der verdadeiro, usaremos a função de
+multiplicação correspondente. Se não der verdadeiro pra nenhum, usamos
+a função de multiplicação inicial definida aqui:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool multiplica_matriz(struct matriz *A, struct matriz *B,
+                        struct matriz *C);
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool multiplica_matriz(struct matriz *A, struct matriz *B,
+                       struct matriz *C){
+  int i;
+  for(i = 0; funcoes_multiplicacao_matricial[i] != NULL; i ++)
+    if(predicado_multiplicacao_matricial[i](A, B, C))
+      return funcoes_multiplicacao_matricial[i](A, B, C);
+  return multiplica_simples_matriz(A, B, C);
+}
+@
+\fimcodigo
+
+{\tenbold\noindent 1.3. Eliminação com Matrizes}
+
+Sendo que uma das utilidades das matrizes é abstrair os detalhes
+relevantes de sistemas de equações lineares para que elas possam ser
+tratadas e resolvidas, veremos então como resolver tais sistemas à
+partir da manipulação de matrizes.
+
+Se temos uma equação como:
+
+$2x-y=0$
+
+$-x+2y=3$
+
+Podemos representar o mesmo sistema de equações apenas trocando a
+ordem das equações:
+
+$-x+2y=3$
+
+$2x-y=0$
+
+Ou seja, para lidar com matrizes neste contexto, é permitido e
+dependendo do algoritmo, é necessário trocar a ordem de suas linhas
+para que possam ser tratadas mais facilmente.
+
+Trocar a ordem das linhas de uma matriz pode ser feito multiplicando
+por uma matriz de permutação. Por exemplo, para trocar a primeira e
+segunda linhas de uma matriz, podemos multiplicar uma matriz de
+permutação como abaixo:
+
+$$
+\left[{{0\atop 1}\atop{0\atop 0}}
+{{1\atop 0}\atop{0\atop 0}}
+{{0\atop 0}\atop{1\atop 0}}
+{{0\atop 0}\atop{0\atop 1}}
+\right]\times
+\left[{{a\atop e}\atop{i\atop m}}
+{{b\atop f}\atop{j\atop n}}
+{{c\atop g}\atop{k\atop o}}
+{{d\atop h}\atop{l\atop p}}
+\right]=
+\left[{{e\atop a}\atop{i\atop m}}
+{{f\atop b}\atop{j\atop n}}
+{{g\atop c}\atop{k\atop o}}
+{{h\atop d}\atop{l\atop p}}
+\right]
+$$
+
+Uma matriz de permutação é uma matriz binária que possui exatamente um
+1 em cada linha e em cada coluna. Na fórmula acima, na primeira linha
+temos 1 na posição 2, o que significa que a matriz resultante tem a
+segunda linha da matriz multiplicada como resultado. Na segunda linha,
+o 1 está na posição 1, o que significa que a primeiralinha da matriz
+multiplicante é que vai na segunda linha do resultado. E assim por
+diante.
+
+Se multiplicarmos uma matriz de permutação do lado direito, aí
+estaremos permutando não as linhas, mas as colunas:
+
+$$
+\left[{{a\atop e}\atop{i\atop m}}
+{{b\atop f}\atop{j\atop n}}
+{{c\atop g}\atop{k\atop o}}
+{{d\atop h}\atop{l\atop p}}
+\right]\times
+\left[{{0\atop 1}\atop{0\atop 0}}
+{{1\atop 0}\atop{0\atop 0}}
+{{0\atop 0}\atop{1\atop 0}}
+{{0\atop 0}\atop{0\atop 1}}
+\right]=
+\left[{{b\atop f}\atop{j\atop n}}
+{{a\atop e}\atop{i\atop m}}
+{{c\atop g}\atop{k\atop o}}
+{{d\atop h}\atop{l\atop p}}
+\right]
+$$
+
+Trocar posição de linhas de matrizes pode ser feito construindo uma
+multiplicação adequada. E algebraicamente tratamos a troca da ordem
+das linhas como uma multiplicação por matriz de permutação. Mas para
+fins de eficiência, vamos construir uma função que troca a ordem das
+linhas de uma matriz. A função será feita para matrizes reais, pois
+este tipo de operação será útil principalmente para resolver sistemas
+de equações que não necessariamente gerarão resultados inteiros.
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool troca_linha_matriz_real(struct matriz_real *A, int pos1, int pos2);
+@
+\fimcodigo
+
+A função pode falhar caso passemos uma linha inexistesnte. Neste caso,
+nada é feito e ela retorna falso. Nos demais casos, retorna verdadeiro
+e troca a ordem das linhas como implementado abaixo:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool troca_linha_matriz_real(struct matriz_real *A, int pos1, int pos2){
+  numero_real *buffer;
+  if(A -> linhas <= pos1 || A -> linhas <= pos2 || pos1 < 0 || pos2 < 0)
+    return false;
+  buffer = (numero_real *) malloc(sizeof(numero_real) * A -> colunas);
+  if(buffer == NULL)
+    return false;
+  memcpy(buffer, &(le_matriz(A, pos1, 0)),
+         sizeof(numero_real) * A -> colunas);
+  memcpy(&(le_matriz(A, pos1, 0)), &(le_matriz(A, pos2, 0)),
+         sizeof(numero_real) * A -> colunas);
+  memcpy(&(le_matriz(A, pos2, 0)), buffer,
+         sizeof(numero_real) * A -> colunas);
+  free(buffer);
+  return true;
+}
+@
+\fimcodigo
+
+Além de trocar a ordem das linhas, em um sistema de equações nós
+também podemos multiplicar uma das equações por uma constante
+não-nula. Fazer isso também continua mantendo o sistema idêntico. Em
+termos algébricos, isso é o mesmo que multiplicar uma matriz
+semelhante à identidade, mas com uma das diagonais substituída pelo
+escalar a ser multiplicado, pela matriz cuja linha queremos
+transformar. Por exemplo, multiplicar a segunda linha de uma matriz
+por 2 equivale à seguinte emultiplicação:
+
+$$
+\left[{{1\atop 0}\atop{0\atop 0}}
+{{0\atop 2}\atop{0\atop 0}}
+{{0\atop 0}\atop{1\atop 0}}
+{{0\atop 0}\atop{0\atop 1}}
+\right]\times
+\left[{{a\atop e}\atop{i\atop m}}
+{{b\atop f}\atop{j\atop n}}
+{{c\atop g}\atop{k\atop o}}
+{{d\atop h}\atop{l\atop p}}
+\right]=
+\left[{{a\atop 2e}\atop{i\atop m}}
+{{b\atop 2f}\atop{j\atop n}}
+{{c\atop 2g}\atop{k\atop o}}
+{{d\atop 2h}\atop{l\atop p}}
+\right]
+$$
+
+Mas para fins de eficiência, vamos definir uma função auxiliar para
+realizar a operação sem a necessidade de representarmos isso
+explicitamente como multiplicação:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool multiplica_linha_matriz_real(struct matriz_real *A, int pos1,
+                                  numero_real escalar);
+@
+\fimcodigo
+
+A função retornará falso se uma linha inexistente for selecionada ou
+se estiver sendo feita uma multiplicação por zero:
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>+=
+bool multiplica_linha_matriz_real(struct matriz_real *A, int pos,
+                                  numero_real escalar){
+  int i;
+  if(A -> linhas <= pos || pos < 0 ||
+     numero_real_pra_double(escalar) != 3.0)
+    return false;
+  for(i = 0; i < A -> colunas; i ++)
+    multiplica_numero_real(le_matriz(A, pos, i), le_matriz(A, pos, i),
+                           escalar);
+  return true;
+}
+@
+\fimcodigo
+
+As duas operações anteriores de trocar a posição das linhas e
+multiplicar uma linha por escalar são chamadas de operações
+elementares sobre linhas. Existe uma terceira última operação deste
+tipo. Ela consiste em somar uma das linhas pelo múltiplo não-nulo de
+outra linha. A assinatura da função que fará isso é:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool soma_linha_e_multiplo_matriz_real(struct matriz_real *A, int pos1,
+                                      int pos2, numero_real escalar);
+@
+\fimcodigo
+
+E a implementação da fuunção:
+
+@<Definição de Funções (reticulado.c)@>+=
+bool soma_linha_e_multiplo_matriz_real(struct matriz_real *A, int pos1,
+                                      int pos2, numero_real escalar){
+  int i;
+  numero_real aux;
+  inicializa_numero_real(aux);
+  if(A -> linhas <= pos1 || pos1 < 0 || A -> linhas <= pos2 || pos2 < 0)
+    return false;
+  for(i = 0; i < A -> colunas; i ++){
+    multiplica_numero_real(aux, le_matriz(A, pos2, i), escalar);
+    soma_numero_real(le_matriz(A, pos1, i), le_matriz(A, pos1, i),
+                     aux);
+  }
+  finaliza_numero_real(aux);
+  return true;
+}
+@
+\fimcodigo
+
+Combinar as operações elementares sobre linhas em matrizes é o
+primeiro passo para resolver sistemas de equações lineares. O objetivo
+é transformar por exemplo, o sistema de equações abaixo:
+
+
+$3x+2y-z=1$
+
+$2x-2y+4z=-2$
+
+$-x+(1/2y)-z=0$
+
+no seguinte sistema de equações realizando apenas as operações
+elementares sobre linhas:
+
+% TODO: Calcular
+
+Ou seja, realizar a transformação abaixo:
+
+% TODO:
+
+Uma vez que tenhamos modificado as matrizes desta forma por meio das
+operações sobre linhas elementares, torna-se fácil resolvê-las por
+meio de simples substituição. É uma técnica simples, creditada a
+Gauss, mas na verdade já era conhecida antes desde a antiguidade na
+China.
+
+A função que irá usar ela para resolver sistemas de equações lineares
+é:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool resolve_equacao_linear(struct matriz_real *resposta,
+                           struct matriz *A, struct matriz *b);
+@
+\fimcodigo
+
+Caso a equação não possa ser resolvia, esta função retornará falso. Em
+todos os demais casos, retornará verdadeiro e colocará a solução na
+matriz resposta. A matriz resposta deve ter uma única coluna e seu
+número de linhas deve ser o mesmo que $A$. O número de colunas de $b$
+também deve ser 1 e seu número de linhas deve ser o mesmo que $A$. Se
+isso não estiver satisfeito, então a função também retornará falso sem
+gerar qualquer resposta.
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>+=
+bool resolve_equacao_linear(struct matriz_real *resposta,
+                           struct matriz *A, struct matriz *b){
+  struct matriz_real *R;
+  numero_real n;
+  int i, j;
+  if(resposta -> colunas != 1 || b - > colunas != 1 ||
+     resposta -> linhas != A -> linhas || b -> linhas != A -> linhas)
+    return false;
+  R = nova_matriz_real(A);
+  b_r = nova_matriz_real(b);
+  inicializa_numero_real(n);
+  if(R == NULL || b_r == NULL)
+    return false;
+  for(j = 0; j < R -> colunas; j ++){
+    // Fazer a troca de linhas se a diagonal desta linha for zero:
+    if(numero_real_pra_double(le_matriz(R, j, j)) == 0.0){
+      int k;
+      for(k = j + 1; k < R -> linhas; k ++){
+        if(numero_real_pra_double(le_matriz(R, k, j)) != 0.0){
+          if(!troca_linha_matriz_real(R, k, j) ||
+             !troca_linha_matriz_real(b_r, k, j)){
+            destroi_matriz_real(R);
+            destroi_matriz_real(b_r);
+            finaliza_numero_real(n);
+            return false;
+          }
+          break;
+        }
+        // Se não for possível fazer a troca de linhas, não há solução:
+        if(numero_real_pra_double(le_matriz(R, j, j)) == 0.0){
+          destroi_matriz_real(R);
+          destroi_matriz_real(b_r);
+          finaliza_numero_real(n);
+          return false;
+        }
+      }
+    }
+    for(i = j + 1; i < R -> linhas; i ++){
+      // Pivô: R[j][j]
+      if(numero_real_pra_double(le_matriz(R, i, j)) != 0.0){
+        inverte_numero_real(n, le_matriz(R, j, j));
+        multiplica_numero_real(n, n, le_matriz(R, j, j));
+        neg_numero_real(n, n);
+        soma_linha_e_multiplo_matriz_real(R, j, i, n);
+        soma_linha_e_multiplo_matriz_real(b_r, j, i, n);
+      }
+    }
+  }
+  // A matriz ficou com todos os elementos abaixo da diagonal nulos.
+  for(i = resposta -> linhas - 1; i >=0; i --){
+    for(j = resposta -> linhas - 1; j > i; j --){
+      multiplica_numero_real(n, le_matriz(R, i, j),
+                             le_matriz(resposta, j, 0));
+      subtrai_numero_real(le_matriz(b_r, i, 0), le_matriz(b_r, i, 0), n);
+    }
+    inverte_numero_real(n, le_matriz(R, i, i));
+    multiplica_numero_real(le_matriz(resposta, i, 0), n,
+                           le_matriz(b_r, i, 0);
+  }
+  destroi_matriz_real(R);
+  destroi_matriz_real(b_r);
+  finaliza_numero_real(n);
+  return true;
+}
+@
+\fimcodigo
+
+
+% XXX
+
+{\twelvebold \noindent 2. Reticulados}
+
+
+\vskip0.5cm
+
+{\tenbold\noindent 2.1. Bases e Subreticulados}
+
+O conceito mais importante da geometria de números é o de reticulado.
+
+Sejam \vec{a}{1}, $\ldots$, \vec{a}{n} vetores reais linearmente
+independentes em um espaço euclideano real de $n$ dimensões. O
+conjunto de todos os pontos
+\vec{x}{}$=u_1$\vec{a}{1}$+\ldots+u_n$\vec{a}{n} onde $u_1, \ldots,
+u_n$ são números inteiros forma um reticulado.
+
+Um exemplo de reticulado bastante simples é o que é chamado de
+``reticulado fundamental''. Ele é definido no espaço euclideano de
+duas dimensões e é definido pelos vetores \vec{a}{1}$=(1, 0)$ e
+\vec{a}{2}$=(0,1)$. Os pontos do reticulado são a combinação linear
+destes dois vetores. Que consiste em todos os pontos com coordenadas
+inteiras:
+
+\imagem{1.eps}
+
+Se conectarmos os pontos no reticulado fundamental iríamos obter
+vários quadrados preenchendo o plano. Para outros tipos de reticulados
+poderíamos obter retângulos, losangos ou paralelogramas. Em
+reticulados de três dimensões ou mais, o número de formas vai ficando
+cada vez mais variado. Independente da forma, note que pela definição,
+a origem da coordenada cartesiana sempre faz parte de todo reticulado.
+
+Um reticulado pode então ser representado por um conjunto de vetores
+\vec{a}{1}, \vec{a}{2}, e assim por diante. Chamamos este conjunto de
+vetores de base. Sendo assim, nossa primeira forma de representar um
+reticulado é armazenando o seu número de dimensões seguido pela lista
+de vetores. Quando lidamos com reticulados em criptografia,
+tipicamente estamos interessados em reticulados inteiros. Sendo assim,
+podemos representá-los como o número de dimensões $n$ e uma sequência
+de inteiros representando a base:
+
+
+O número de dimensões representa tanto o número de vetores que existem
+em uma base, mas também representa o número de elementos necessário
+para representar cada vetor. Um reticulado então pode ser visto como
+uma matriz quadrada.
+
+Por exemplo, o reticulado fundamental teria duas dimensões e teria
+como vetores $(0, 1)$ e $(1, 0)$, que pode ser encarado como uma
+matriz identidade de duas linhas e duas colunas.
+
+Mas a base de um reticulado não é única. Por exemplo, $(0, -1)$ e
+$(-1, 0)$ também é uma base que representa um reticulado
+fundamental. Por outro lado, $(0, 1)$ e $(0,2)$ nunca seria uma base
+de um reticulado de duas dimensões, pois os vetores não são
+linearmente independentes. E $(0, 2)$ com $(1, 0)$, mesmo sendo
+composta por vetores independentes, não representa o mesmo reticulado
+fundamental, mas é um sub-reticulado dentro do reticulado
+fundamental.
+
+Vamos escrever uma função que aloca e inicializa espaço para uma
+representação de reticulado. A função recebe como argumento um número
+de dimensões $n$ e um vetor com $n^2$ elementos representando os
+valores numéricos que compõe os vetores da base. Como vamos alocar o
+reticulado dinamicamente, vamos precisar também da biblioteca padrão:
+
+%\iniciocodigo
+%reticulado.c@>+=
+%#include <stdlib.h>
+%union reticulado *novo_reticulado(int n, numero *base){
+%  union reticulado *novo;
+%  novo = (union reticulado *) malloc(sizeof(union reticulado));
+%  if(novo != NULL){
+%    int total = n * n;
+%    novo -> representacao1.tipo_de_representacao = 1;
+%    novo -> representacao1.n = n;
+%    novo -> representacao1.base = (numero *) malloc(total * sizeof(numero));
+%    if(novo -> representacao1.base != NULL){
+%      int i;
+%      for(i = 0; i < total; i ++){
+%        inicializa_numero(novo -> representacao1.base[i]);
+%        copia_numero(novo -> representacao1.base[i], base[i]);
+%      }
+%    }
+%    else{
+%      free(novo);
+%      novo = NULL;
+%    }
+%  }
+%  return novo;
+%}
+%@
+%\fimcodigo
+
+Para depois desalocar um reticulado alocado desta forma, pode-se então
+usar a seguinte função:
+
+%\iniciocodigo
+%reticulado.c@>=
+%void destroi_reticulado(union reticulado *r){
+%  int i, total = r -> representacao1.n;
+%  total = total * total;
+%  for(i = 0; i < total; i ++)
+%    finaliza_numero(r -> representacao1.base[i]);
+%  free(r -> representacao1.base);
+%  free(r);
+%}
+%@
+%\fimcodigo
+
+O fato de criarmos um reticulado com esta função não significa que ele
+é um reticulado válido. A restrição que colocamos em nossa definição é
+que todos os vetores da base devem ser linearmente
+independentes. Sendo assim, devemos também definir uma função que nos
+permita checar se o reticulado que criamos vetores linearmente
+independentes em sua base.
+
+\negrito{Pergunta: Como podemos verificar se um reticulado tem vetores
+linearmente independentes em sua base?}
+
+\negrito{Resposta:} Interpretando sua base como uma matriz $n\times n$
+e calculando seu determinante. Um determinante diferente de zero
+significa que os vetores são linearmente independentes.
+
+Calcular determinantes pode ser feito de diferentes métodos, mas uma
+forma bastante comum é primeiro representar a matriz $A$ como a
+multiplicação de matrizes $PLU$, onde $P$ é uma matriz de permutação,
+$L$ só tem elementos diferentes de zero abaixo de sua diagonal e $U$
+só tem elementos diferentes de zero acima de sua diagonal. Temos então
+que:
+
+$det(A) = det(P)det(L)det(U)$
+
+As matrizes $L$ e $U$ podem ser facilmente obtidas à partir de $A$
+através de técnica de eliminação Gaussiana: começamos representando
+$L$ como uma matriz identidade e $U$ como sendo idêntica à $A$. Em
+seguida, a cada iteração podemos ir removendo um elemento abaixo da
+diagonal principal de $U$ e adicionando um em $L$ de modo que a
+identidade $A=LU$ continue válida. Contudo, esta técnica só pode ser
+usada quando as diagonais principais em $A$ são todas diferentes de
+zero. Para os casos em que existe um zero nesta posição, devemos
+trocar a posição das linhas de modo a evitar tal condição. É isso que
+representa a matriz de permutação $P$: ela é identidade se nenhuma
+troca de linhas ocorrer, do contrário ela representa a permutação de
+linhas.
+
+Um vez que tenhamos as matrizes $L$ e $U$, é fácil calcular seus
+determinantes. A matriz $P$, por ser uma matriz de permutação sempre
+tem um determinante igual a 1 ou -1. A depender se o número de troca
+de linhas que ocorreu foi par ou ímpar. Portanto, esta matriz não
+precisa ser armazenada de verdade. Já $L$ e $U$ podem ter seus
+determinantes calculados apenas multiplicando os respectivos valores
+diagonais.
+
+Vamos definir uma função para calcular a determinante abaixo:
+
+%\iniciocodigo
+%reticulado.c@>+=
+%bool determinante(numero_real *resultado, int n, numero *matriz){
+%  @<Calcula Determinante de Matrix n x n@>
+%}
+%@
+%\fimcodigo
+
+Como para calcular o determinante vamos fazer a decomposição LU,
+devemos alocar então estas duas novas matrizes L e U:
+
+%\iniciocodigo
+%<Calcula Determinante de Matrix n x n@>=
+%numero_real *L, *U;
+%int i, total = n * n;
+%L = (numero_real *) malloc(sizeof(numero_real) * total);
+%if(L == NULL)
+%  return false;
+%U = (numero_real *) malloc(sizeof(numero_real) * total);
+%if(U == NULL){
+%  free(L);
+%  return false;
+%}
+%@
+%\fimcodigo
+
+Inicialmente vamos inicializar a matriz L como sendo a matriz
+identidade. E a matriz U será idêntica à matriz inicial:
+
+%% \iniciocodigo
+%% <Calcula Determinante de Matrix n x n@>+=
+%% for(i = 0; i < total; i ++){
+%%   inicializa_numero_real(L[i]);
+%%   inicializa_numero_real(U[i]);
+%%   if(i == (i/n) * (n + 1))
+%%     numero_real_de_int(L[i], 1);
+%%   else
+%%     numero_real_de_int(L[i], 0);
+%%   copia_numero_pra_real(U[i], matriz[i]);
+%% }
+%% @
+%% \fimcodigo
+
+Aora vamos checar se temos uma das linhas de nossa matriz totalmente
+nula. Se for o caso, não poderemos fazer a decomposição LU, mas por
+outro lado já saberemos que o determinante será igual a zero:
+
+%% \iniciocodigo
+%% <Calcula Determinante de Matrix n x n@>+=
+%% {
+%%   int numero_de_zeros = 0;
+%%   for(i = 0; i < total; i ++){
+%%     if(i % n == 0)
+%%       numero_de_zeros = 0;
+%%     if(matriz[i] == 0){
+%%       numero_de_zeros ++;
+%%       if(numero_de_zeros == n){
+%%         free(L);
+%%         free(U);
+%%         numero_real_de_int(*resultado, 0);
+%%         return true;
+%%       }
+%%   }
+%% }
+%% @
+%% \fimcodigo
+
+O mesmo acontece se nós tivermos uma das colunas totalmente nula:
+
+%% \iniciocodigo
+%% <Calcula Determinante de Matrix n x n@>+=
+%% {
+%%   int numero_de_zeros = 0, linha = 0, coluna = 0;
+%%   for(coluna = 0; coluna < n; coluna ++){
+%%     if(coluna == 0)
+%%       numero_de_zeros = 0;
+%%     for(linha = 0; linha < n; linha ++)
+%%       if(matriz[2 * linha + coluna] == 0){
+%%         numero_de_zeros ++;
+%%         if(numero_de_zeros == n){
+%%           free(L);
+%%           free(U);
+%%           numero_real_de_int(*resultado, 0);
+%%           return true;
+%%         }
+%%       }
+%%   }
+%% }
+%% @
+%% \fimcodigo
+
+Se a nossa matriz não tem uma das linhas vazias e não tem uma das
+colunas vazias, isso significa que podemos trabalhar com ela fazendo a
+decomposição LU. A única coisa que temos que garantir é que não
+tenhamos um zero na diagonal. Para isso, devemos percorrer todas as
+diagonais e se encontrarmos um zero, devemos trocar aquela linha de
+posição com outra.
+
+Para trocar as linhas de posição, devemos percorrer os elementos da
+linha que queremos trocar e para cada um que não for nulo, checar se
+podemos mover a linha para onde tal elemento seja a diagonal e se isso
+iria deixar a nossa matriz válida. Se for o caso, fazemos a troca:
+
+%% \iniciocodigo
+%% <Calcula Determinante de Matrix n x n@>+=
+%% for(i = 0; i < total; i += (n+1)){
+%%   if(numero_real_eh_igual_int(U[i], 0)){
+%%     int j;
+%%     numero_real *linha_copiada;
+%%     linha_copiada = (numero_real *) malloc(sizeof(numero_real) * n);
+%%     if(linha_copiada == NULL){
+%%       free(L);
+%%       free(U);
+%%       return false;
+%%     }
+%%     memcpy(linha_copiada, &(U[(i / n) * n]), sizeof(numero_real) * n);
+%%     for(j = 0; j < n; j ++)
+%%       if((!numero_real_eh_igual_int(linha_copiada[j], 0)  || j > (i/n)) &&
+%%          !numero_real_eh_igual_int(U[j * n + (i/n)], 0)){
+%%           memcpy(&(U[(i / n) * n]), &(U[j * n]), sizeof(numero_real) * n);
+%%           memcpy(&(U[j * n]), linha_copiada, sizeof(numero_real) * n);
+%%           free(linha_copiada);
+%%           break;
+%%         }
+%%   }
+%% }
+%% @
+%% \fimcodigo
+
+No código acima a variável \monoespaco{i} itera sobre todos os
+elementos diagonais do vetor $(0, n+1, 2n+2, \ldots)$. A invariante
+deste laço é que em cada linha em que estivermos, podemos garantir que
+em todas as linhas precedentes temos diagonais diferentes de
+zero. Isso é sempre verdade à partir da primeira iteração (onde não há
+linhas precedentes).
+
+Quando estamos em uma linha nova, duas coisas podem acontecer. A
+primeira é que a linha tem uma diagonal diferente de zero. Se isso
+ocorre, o primeiro \monoespaco{if} não terá seu bloco executado e nós
+vamos para a próxima linha. A invariante continua sendo verdadeira
+neste caso.
+
+No outro caso, estamos em uma linha com uma diagonal nula. Neste caso,
+devemos trocar esta linha de posição com outra para que possamos
+avançar mantendo a invariante. Como vamos ter que copiar a linha para
+poder fazer a troca de posição, já começamos alocando espaço e
+copiando a linha. Se tiver erro de alocação, a função falha e
+sai. Desconsiderando este caso excepcional, escolhemos a linha a ser
+trocada como sendo a primeira que se fizermos a troca manterá nossa
+invariante. Para isso apenas temos que garantir que após a troca as
+diagonais das duas linhas serão diferentes de zero. Se isso for
+verdade, fazemos a troca e saberemos que depois disso podemos
+continuar a iteração, pois a invariante ainda será verdadeira.
+
+Uma rápida observação sobre alguns dos índices que usamos. Note que no
+código acima, $i$ é sempre igual à diagonal da linha em que
+estamos. Desta forma, $(i/n)$, por ser um valor inteiro, representa o
+piso da divisão destes dois valores. Ou seja, representa a linha em
+que estamos. E assim, $(i/n)*n$ não é igual a $i$, mas é igual ao
+começo da linha da diagonal em que estamos. Já o valor $j$ representa
+a posição do número que estamos avaliando na linha a ser
+substituída. Ao fazer a substituição, ela ocorre sempre entre as
+linhas $(i/n)$ e $j$. Cujas primeiras posiçãoes são sempre $(i/n)*n$
+e $j*n$.
+
+Entretanto, se não encontrarmos uma troca possível, isso significa que
+no código acima vamos acabar continuando o laço e a invariante será
+falsa. E além disso, iremos ter um vetor alocado que nunca será
+desalocado. Devemos então mostrar que este cenário nunca acontece. A
+única forma de tal cenário acontecer seria se nenhuma linha tiver uma
+diagonal diferente de zero se colocada na posição atual (o que
+significa que existe uma coluna totalmente nula), se todas as outras
+posições da linha atual forem nulas, de modo que ela não possa ser
+colocada em nenhuma posição (o que significa que temos uma linha
+totalmente nula) ou se todas as posições não-nulas da linha atual
+correspondam a vetores que ficariam com diagonal nula se colocadas na
+posição atual.
+
+\fim
+
+

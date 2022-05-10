@@ -1,0 +1,9 @@
+*~
+*.o
+*.dvi
+*.log
+teste_bn
+teste_double
+teste_int
+teste_mpq
+teste_mpz
