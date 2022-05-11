@@ -756,18 +756,21 @@ com a bilbioteca OpenSSL:
 \iniciocodigo
 @<Macros Gerais (reticulado.h)@>+=
 #if defined(NUMERO_EH_BN)
-#define numero_de_int(r, a) BN_set_word(r, a)
-#define numero_real_de_int(r, a) \
-          (BN_set_word(r, a) &&  \
+#define numero_de_int(r, a)                                     \
+          (BN_set_word(r, (unsigned long) ((a<0)?(-a):(a))) &&  \
+           BN_set_negative(r, (a < 0)))
+#define numero_real_de_int(r, a)   \
+          (numero_de_int(r, a) &&  \
            BN_mul_word(r, (unsigned long) 1000000000000000000))
-#define numero_pra_int(r) ((int) BN_get_word(r))
+#define numero_pra_int(r) ((BN_is_negative(r))?(-((int) BN_get_word(r))):\
+                                              ((int) BN_get_word(r)))
 #endif
 @
 \fimcodigo
 
 Já obter um inteiro à partir de um número real envolve dividir este
 número real por 1.000.000.000.000.000.000 para descartar suas casas
-decimais e em seguida passálo para inteiro. Ter que realizar esta
+decimais e em seguida passá-lo para inteiro. Ter que realizar esta
 divisão nos força a implementar isso como uma função, não uma macro:
 
 \iniciocodigo
@@ -782,7 +785,7 @@ int numero_real_pra_int(numero_real r);
 @<Definição de Funções (reticulado.c)@>+=
 #if defined(NUMERO_EH_BN)
 int numero_real_pra_int(numero_real r){
-  tint ret;
+  int ret;
   numero aux;
   inicializa_numero(aux);
   numero_de_numero_real(aux, r);
@@ -794,8 +797,106 @@ int numero_real_pra_int(numero_real r){
 @
 \fimcodigo
 
+O último tipo de conversão é transformar números e números reais de e
+para o tipo \monoespaco{double}. Novamente, se já estamos trabalhando
+só com os tipos básicos da linguagem C, tudo se resume a usar coerção
+de tipos:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#if defined(NUMERO_EH_INT)
+#define numero_de_double(r, a) (r = (int) a)
+#endif
+#if defined(NUMERO_EH_DOUBLE)
+#define numero_de_double(r, a) (r = a)
+#endif
+#define numero_real_de_double(r, a) (r = a)
+#define numero_pra_double(r) ((double) r)
+#define numero_real_pra_double(r) ((double) r)
+#endif
+@
+\fimcodigo
+
+Na biblioteca GNU GMP, usamos as seguintes macros:
 
 
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_MPZ)
+#define numero_de_double(r, a) (mpz_set_d(r, a))
+#define numero_real_de_double(r, a) (mpq_set_d(r, a))
+#define numero_pra_double(r) (mpz_get_d(r))
+#define numero_real_pra_double(r) (mpq_get_d(r))
+#endif
+#if defined(NUMERO_EH_MPQ)
+#define numero_de_double(r, a) (mpq_set_d(r, a))
+#define numero_real_de_double(r, a) (mpq_set_d(r, a))
+#define numero_pra_double(r) (mpq_get_d(r))
+#define numero_real_pra_double(r) (mpq_get_d(r))
+#endif
+@
+\fimcodigo
+
+No OpenSSL não temos funções que permitem converter diretamente
+para \monoespaco{double} os números. Então corremos o risco de perder
+precisão, mas primeiro convertemos para \monoespaco{long} e depois
+para \monoespaco{double}:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+#define numero_de_double(r, a)                                      \
+              (BN_set_word(r, (unsigned long) ((a<0)?(-a):(a))) &&  \
+               BN_set_negative(r, (a < 0.0)))
+#define numero_real_de_double(r, a)                                 \
+              numero_de_double(r, a * 1000000000000000000.0)
+#define numero_pra_double(r)                                        \
+              ((BN_is_negative(r))?(-((double) BN_get_word(r))):    \
+                                   ((double) BN_get_word(r)))
+#endif
+@
+\fimcodigo
+
+Já converter um número real para \monoespaco{double} evitando o risco
+de perder muita precisão na conversão envolve realizar divisões e
+soma. Para isso usaremos uma função auxiliar:
+
+\iniciocodigo
+@<Declaração de Função (reticulado.h)@>=
+#if defined(NUMERO_EH_BN)
+double numero_real_pra_double(numero_real r);
+#endif
+@
+\fimcodigo
+
+\iniciocodigo
+@<Definição de Funções (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+double numero_real_pra_double(numero_real r){
+  BIGNUM *divisao, *resto, *dividendo;
+  int mod;
+  double frac;
+  divisao = BN_new();
+  resto = BN_new();
+  dividendo = BN_new();
+  BN_set_word(dividendo, 1000000000000000000lu);  
+  BN_div(divisao, resto, r, dividendo, bn_context);
+  frac = (((double) BN_get_word(resto)) / 1000000000000000000.0);
+  if(BN_num_bytes(divisao) > sizeof(unsigned long)){
+    BN_clear_free(divisao);
+    BN_clear_free(resto);
+    BN_clear_free(dividendo);
+    return INFINITY;
+  }
+  frac += ((double) BN_get_word(divisao));
+  BN_clear_free(divisao);
+  BN_clear_free(resto);
+  BN_clear_free(dividendo);
+  return frac;  
+}
+#endif
+@
 
 % XXXX
 
@@ -803,56 +904,7 @@ int numero_real_pra_int(numero_real r){
 % Número de número real quando número é inteiro
 
 
-Também podemos querer converter de \monoespaco{int} para
-números, de \monoespaco{int} para números reais,
-de \monoespaco{double} para números, de \monoespaco{double} para
-números reais, ou ainda passar de número pra \monoespaco{int}
-ou \monoespaco{double}, ou de número real para \monoespaco{int}
-ou \monoespaco{double}.
 
-Caso estejamos usando como números os tipos básicos \monoespaco{int}
-e \monoespaco{double}, podemos lidar com todas as conversões fazendo
-um ``casting'' de variáveis:
-
-\iniciocodigo
-@<Macros Gerais (reticulado.h)@>+=
-#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
-#if defined(NUMERO_EH_INT)
-#define numero_de_int(r, a) (r = a)%
-#define numero_de_double(r, a) (r = (int) a)
-#endif
-#if defined(NUMERO_EH_DOUBLE)
-#define numero_de_int(r, a) (r = (double) a)%
-#define numero_de_double(r, a) (r = a)
-#endif
-#define numero_real_de_int(r, a) (r = (double) a)%
-#define numero_real_de_double(r, a) (r = a)
-#define numero_pra_int(r) ((int) r)%
-#define numero_pra_double(r) ((double) r)
-#define numero_real_pra_double(r) ((double) r)
-#define numero_real_pra_int(r) ((int) r)
-#endif
-@
-\fimcodigo
-
-Converter e copiar os diversos tipos usando o GNU GMP funciona com as
-funções abaixo:
-
-\iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
-#if defined(NUMERO_EH_MPZ)
-#define numero_de_numero_real XXX
-#define numero_de_int(r, a) mpz_set_si(r, a)
-#define numero_pra_int(r) ((int) mpz_get_si(r))
-#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
-#endif
-#if defined(NUMERO_EH_MPQ)
-#define numero_de_int(r, a) (mpq_set_d(r, (double) a))
-#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
-#define numero_pra_int(r) ((int) mpq_get_d(r))
-#endif
-@
-\fimcodigo
 
 
 % TODO: Ajustar aqui.
@@ -898,24 +950,6 @@ Aqui é como comparamos númeoros:
 
 Para copiar e converter números de \monoespaco{int}, usamos a função:
 
-\iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
-#if defined(NUMERO_EH_MPZ)
-#define copia_numero(r, a) mpz_set(r, a)
-#define numero_de_int(r, a) mpz_set_si(r, a)
-#define numero_pra_int(r) ((int) mpz_get_si(r))
-#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
-#define copia_numero_pra_real(r, a) mpq_set_z(r, a)
-#endif
-#if defined(NUMERO_EH_MPQ)
-#define copia_numero(r, a) mpq_set(r, a)
-#define numero_de_int(r, a) (mpq_set_d(r, (double) a))
-#define numero_real_de_int(r, a) (mpq_set_si(r, a, 1))
-#define numero_pra_int(r) ((int) mpq_get_d(r))
-#define copia_numero_pra_real(r, a) mpq_set(r, a)
-#endif
-@
-\fimcodigo
 
 
 Alternativamente, podemos querer representar números usando a
@@ -1032,41 +1066,6 @@ Que é definida como:
 Converter um número real de ponto fixo para um \monoespaco{double}
 requer realizar divisões e para isso também usamos o contexto:
 
-\iniciocodigo
-@<Declaração de Função (reticulado.h)@>=
-#if defined(NUMERO_EH_BN)
-double numero_real_pra_double(numero_real r);
-#endif
-@
-\fimcodigo
-
-\iniciocodigo
-@<Definição de Funções (reticulado.c)@>=
-#if defined(NUMERO_EH_BN)
-double numero_real_pra_double(numero_real r){
-  BIGNUM *divisao, *resto, *dividendo;
-  int mod;
-  double frac;
-  divisao = BN_new();
-  resto = BN_new();
-  dividendo = BN_new();
-  BN_set_word(dividendo, 1000000000000000000lu);  
-  BN_div(divisao, resto, r, dividendo, bn_context);
-  frac = (((double) BN_get_word(resto)) / 1000000000000000000.0);
-  if(BN_num_bytes(divisao) > sizeof(unsigned long)){
-    BN_clear_free(divisao);
-    BN_clear_free(resto);
-    BN_clear_free(dividendo);
-    return INFINITY;
-  }
-  frac += ((double) BN_get_word(divisao));
-  BN_clear_free(divisao);
-  BN_clear_free(resto);
-  BN_clear_free(dividendo);
-  return frac;  
-}
-#endif
-@
 
 Como podemos retornar \monoespaco{INFINITY}, devemos inserir o
 cabeçalho matemático:
