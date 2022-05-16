@@ -191,7 +191,7 @@ quantidade de memória presente na máquina. Caso queremos que este tipo
 inteiro com precisão arbitrária seja a nossa definição de número,
 iremos usar então o tipo \monoespaco{mpz\_t} introduzido por esta
 biblioteca. E sendo assim, caso precisemos representar números
-não-inteiros, usaremos o \monoesoaco{mpq\_t}, um tipo capaz de
+não-inteiros, usaremos o \monoespaco{mpq\_t}, um tipo capaz de
 representar números racionais:
 
 \iniciocodigo
@@ -200,7 +200,6 @@ representar números racionais:
 #include <gmp.h> // Cabeçalho do GNU GMP
 typedef mpz_t numero;
 typedef mpq_t numero_real;
-#endif
 #endif
 @
 \fimcodigo
@@ -457,6 +456,16 @@ void finaliza_api_reticulado(void);
 @
 \fimcodigo
 
+Como queremos retornar na inicialização se a função foi bem-sucedida
+ou não, vamos introduzir o cabeçalho que permite usar valores
+booleanos:
+
+\iniciocodigo
+@<Inclui Cabeçalhos (reticulado.h)@>=
+#include <stdbool.h>
+@
+\fimcodigo
+
 Durante a inicialização, fazemos a alocação e inicialização do espaço
 auxiliar de memória, e na finalização, liberamos o espaço na memória:
 
@@ -478,18 +487,21 @@ void finaliza_api_reticulado(void){
 @
 \fimcodigo
 
-Agora para multiplicar um número, ao invés de definirmos uma macro
-como fizemos nos outros casos, vamos declarar uma função
+Agora para multiplicar ou dividir um número, ao invés de definirmos
+uma macro como fizemos nos outros casos, vamos declarar uma função
 verdadeira. Pois ela precisará acessar a variável estática auxiliar:
 
 \iniciocodigo
 @<Declaração de Função (reticulado.h)@>+=
+#if defined(NUMERO_EH_BN)
 void multiplica_numero(numero r, numero a, numero b);
+void divide_numero(numero r, numero a, numero b);
+#endif
 @
 \fimcodigo
 
-E agora faremos a multiplicação. Uma macro não poderia fazer isso,
-pois só temos acesso ao \monoespaco{bn\_context} de dentro do
+E agora faremos a multiplicação e divisão. Uma macro não poderia fazer
+isso, pois só temos acesso ao \monoespaco{bn\_context} de dentro do
 arquivo \monoespaco{reticulado.c}.
 
 \iniciocodigo
@@ -498,20 +510,24 @@ arquivo \monoespaco{reticulado.c}.
 void multiplica_numero(numero r, numero a, numero b){
   BN_mul(r, a, b, bn_context);
 }
+void divide_numero(numero r, numero a, numero b){
+  BN_div(r, NULL, a, b, bn_context);
+}
 #endif
 @
 
-De posse desta função de multiplicação, agora sim podemos definir as
-macros que realização as funções relacionadas no OpenSSL:
+De posse desta função de multiplicação e divisão, agora sim podemos
+definir as macros que realização as funções relacionadas no OpenSSL:
 
 \iniciocodigo
 @<Macros Gerais (reticulado.h)@>=
 #if defined(NUMERO_EH_BN)
-#define divide_numero(r, a, b) BN_div(r, NULL, a, b)
 #define multiplica_numero_real(r, a, b)  \
         (multiplica_numero(r, a, b),    \
          BN_div_word(r, 1000000000000000000lu))
-#define divide_numero_real(r, a, b) BN_div(r, NULL, a, b)
+#define divide_numero_real(r, a, b)     \
+        (divide_numero(r, a, b),    \
+         BN_mul_word(r, 1000000000000000000lu))
 #endif
 @
 \fimcodigo
@@ -525,7 +541,7 @@ função:
 \iniciocodigo
 @<Declaração de Função (reticulado.h)@>=
 #if defined(NUMERO_EH_BN)
-void inverte_numero_real(numero_real r, numero_real a);
+void inverso_numero_real(numero_real r, numero_real a);
 #endif
 @
 \fimcodigo
@@ -536,12 +552,12 @@ armazenar em uma variável o valor de 1 em representação de ponto fixo:
 \iniciocodigo
 @<Definição de Funções (reticulado.c)@>=
 #if defined(NUMERO_EH_BN)
-void inverte_numero_real(numero_real r, numero_real a){
+void inverso_numero_real(numero_real r, numero_real a){
   numero_real um;
   inicializa_numero_real(um);
   numero_real_de_int(um, 1);
   divide_numero_real(r, um, a);
-  destroi_numero_real(um);
+  finaliza_numero_real(um);
 }
 #endif
 @
@@ -605,7 +621,7 @@ como uma macro. A assinatura da função é:
 \iniciocodigo
 @<Declaração de Função (reticulado.h)@>=
 #if defined(NUMERO_EH_MPZ)
-void numero_de_numero_real(numero_real r, numero a);
+void numero_de_numero_real(numero z, numero_real r);
 #endif
 @
 \fimcodigo
@@ -615,12 +631,12 @@ E sua implementação:
 \iniciocodigo
 @<Definição de Funções (reticulado.c)@>=
 #if defined(NUMERO_EH_MPZ)
-void numero_de_numero_real(numero_real r, numero a){
+void numero_de_numero_real(numero n, numero_real r){
   mpz_t aux;
   mpz_init(aux);
-  mpq_get_num(r, a);
-  mpq_get_den(aux, a);
-  mpz_tdiv_q(r, r, aux);
+  mpq_get_num(n, r);
+  mpq_get_den(aux, r);
+  mpz_tdiv_q(n, n, aux);
   mpz_clear(aux);
 }
 #endif
@@ -638,8 +654,8 @@ usamos as macros abaixo:
 #define numero_real_de_numero(r, a) \
           (BN_copy(r, a) &&         \
           BN_mul_word(r, (unsigned long) 1000000000000000000lu))
-#define numero_de_numero_real (r, a) \
-          (BN_copy(r, a) &&          \
+#define numero_de_numero_real(r, a) \
+          (BN_copy(r, a) &&         \
            BN_div_word(r, 1000000000000000000lu))
 #endif
 @
@@ -757,11 +773,11 @@ com a bilbioteca OpenSSL:
 @<Macros Gerais (reticulado.h)@>+=
 #if defined(NUMERO_EH_BN)
 #define numero_de_int(r, a)                                     \
-          (BN_set_word(r, (unsigned long) ((a<0)?(-a):(a))) &&  \
-           BN_set_negative(r, (a < 0)))
+          BN_set_word(r, (unsigned long) ((a<0)?(-a):(a)));    \
+          BN_set_negative(r, (a < 0))
 #define numero_real_de_int(r, a)   \
-          (numero_de_int(r, a) &&  \
-           BN_mul_word(r, (unsigned long) 1000000000000000000))
+          numero_de_int(r, a);  \
+          BN_mul_word(r, (unsigned long) 1000000000000000000)
 #define numero_pra_int(r) ((BN_is_negative(r))?(-((int) BN_get_word(r))):\
                                               ((int) BN_get_word(r)))
 #endif
@@ -898,187 +914,99 @@ double numero_real_pra_double(numero_real r){
 #endif
 @
 
-% XXXX
-
-
-% Número de número real quando número é inteiro
-
-
-
-
-
-% TODO: Ajustar aqui.
-
-
-As operações de comparação também devem ser definidas:
+Como queremos poder retornar infinito, vamos adicionar o cabeçalho
+matemático:
 
 \iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
-#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
-#define numero_eh_igual_int(r, a) (r == a)
+@<Cabeçalhos Locais (reticulado.c)@>=
+#if defined(NUMERO_EH_BN)
+#include <math.h>
 #endif
 @
 \fimcodigo
 
+Por fim, vamos fornecer uma função de comparação que deve retornar um
+número igual a zero se seus dois números forem iguais, menor que zero
+se o primeiro for menor que o segundo e maior que zero se o primeiro
+for maior.
 
-Tambrém precisamos de macros para copiar uma variável de número para
-outra. E para ler um número de um \monoespaco{int} e também para
-um \monoespaco{int}, e também fazer conversões de tipo:
-
-
-
-
-
-
-Aqui é como comparamos númeoros:
+Se usamos os tipos básicos da linguagem C, basta compararmos eles
+diretamente com os operadores da linguagem:
 
 \iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
-#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
-#define numero_real_eh_igual_int(r, a) (mpq_cmp_si(r, a, 1) == 0)
-#define numero_real_pra_double(r) (mpq_get_d(r))
+@<Macros Gerais (reticulado.h)@>+=
+#if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
+#define compara_numero(a, b) ((a==b)?(0):((a>b)?(1):(-1)))
+#define compara_numero_real(a, b) ((a==b)?(0):((a>b)?(1):(-1)))
+#define compara_numero_numero_real(a, b) ((a==b)?(0):((a>b)?(1):(-1)))
+#define compara_numero_real_numero(a, b) (-compara_numero_numero_real(b, a)
 #endif
+@
+\fimcodigo
+
+Se usamos o GNU GMP, usamos as seguintes funções:
+
+\iniciocodigo
+@<Macros Gerais (reticulado.h)@>+=
 #if defined(NUMERO_EH_MPZ)
-#define numero_eh_igual_int(r, a) (mpz_cmp_si(r, a) == 0)
+#define compara_numero(a, b) mpz_cmp(a, b)
+#define compara_numero_real(a, b) mpq_cmp(a, b)
+#define compara_numero_numero_real(a, b) (- mpq_cmp_z(b, a))
+#define compara_numero_real_numero(a, b) mpq_cmp_z(a, b)
 #endif
 #if defined(NUMERO_EH_MPQ)
-#define numero_eh_igual_int(r, a) (mpq_cmp_si(r, a, 1) == 0)
+#define compara_numero(a, b) mpq_cmp(a, b)
+#define compara_numero_real(a, b) mpq_cmp(a, b)
+#define compara_numero_numero_real(a, b) mpq_cmp(a, b)
+#define compara_numero_real_numero(a, b) mpq_cmp(a, b)
 #endif
 @
 \fimcodigo
 
-
-Para copiar e converter números de \monoespaco{int}, usamos a função:
-
-
-
-Alternativamente, podemos querer representar números usando a
-biblioteca BIGNUM do OpenSSL. Um problema desta biblioteca é que ela
-não possui uma representação para números não-inteiros de precisão
-arbitrária. Por causa disso, vamos representar um número real neste
-caso como sendo um número de ponto fixo, onde as 19 casas decimais
-finais representam dígidos após a vírgula na representação.
-
-
-
-E as operações básicas no OpenSSL:
-
-
-As funções de comparação vem a seguir. Comparar um número em ponto
-fixo com um inteiro é complexo demais para se fazer em uma macro e
-para isso usamos uma função:
+No caso do OpenSSL, as funções são estas:
 
 \iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
+@<Macros Gerais (reticulado.h)@>+=
 #if defined(NUMERO_EH_BN)
-#define numero_eh_igual_int(r, a) BN_is_word(r, a)
+#define compara_numero(a, b) BN_cmp(a, b)
+#define compara_numero_real(a, b) BN_cmp(a, b)
+//#define compara_numero_numero_real(a, b) // A definir...
+#define compara_numero_real_numero(a, b) (-compara_numero_numero_real(a,b))
 #endif
 @
 \fimcodigo
 
-Mas para fazer comparações entre números reais e inteiros, precisamos
-fazer operações mais complexas do que é confortável de expressar em
-uma macro. Neste caso, teremos que definir uma função:
+Comparar um número com número real envolve converter o número para a
+representação em ponto fixo, o multiplicando, para em seguida
+comparar. Como é algo que requer variáveis auxiliares, vamos
+implementar como uma função:
 
 \iniciocodigo
 @<Declaração de Função (reticulado.h)@>=
 #if defined(NUMERO_EH_BN)
-bool numero_real_eh_igual_int(numero_real r, int a);
+int compara_numero_numero_real(numero a, numero_real b);
 #endif
 @
 \fimcodigo
-
-A comparação é feita convertendo o inteiro para a representação em
-ponto fixo que usamos e então usando as funções de comparação:
 
 \iniciocodigo
 @<Definição de Funções (reticulado.c)@>=
 #if defined(NUMERO_EH_BN)
-bool numero_real_eh_igual_int(numero_real r, int a){
-  BIGNUM *tmp;
-  int mod;
-  bool result;
-  tmp = BN_new();
-  BN_set_word(tmp, a);
-  BN_mul_word(tmp, 1000000000000000000lu);
-  result = (BN_cmp(tmp, r) == 0);
-  BN_clear_free(tmp);
-  return result;
+int compara_numero_numero_real(numero a, numero_real b){
+  numero_real aux;
+  int ret;
+  inicializa_numero_real(aux);
+  numero_real_de_numero(aux, a);
+  ret = compara_numero_real(aux, b);
+  finaliza_numero_real(aux);
+  return ret;
 }
 #endif
 @
 
-Como estamos usando o tipo \monoespaco{bool}, introduzido na linguagem
-C99, teremos que incluir também o cabeçalho que a ativa:
-
-\iniciocodigo
-@<Inclui Cabeçalhos (reticulado.h)@>=
-#include <stdbool.h>
-@
-\fimcodigo
 
 
-E por fim as funções de copiar números e convertê-los de e
-para \monoespaco{int} e também para \monoespaco{double} no caso de
-número real em ponto fixo:
-
-\iniciocodigo
-@<Macros Gerais (reticulado.h)@>=
-#if defined(NUMERO_EH_BN)
-#define copia_numero(r, a) BN_copy(r, a)
-#define numero_de_int(r, a) BN_set_word(r, a)
-#define numero_real_de_int(r, a) \
-          (BN_set_word(r, a) &&  \
-           BN_mul_word(r, (unsigned long) 1000000000000000000))
-#define numero_pra_int(r) ((int) BN_get_word(r))
-#define copia_numero_pra_real(r, a) \
-          (BN_copy(r, a) &&         \
-          BN_mul_word(r, (unsigned long) 1000000000000000000))
-#endif
-@
-\fimcodigo
-
-Será importante criar também uma função de inicialização que deve ser
-usada antes de qualquer outra e uma de finalização que deve ser a
-última a ser executada. Isso permite a nós fazer alocações iniciais se
-for necessário. Por exemplo, no caso das funções do OpenSSL, a
-biblioteca pede que para algumas funções passemos um contexto
-previamente alocado e ela faz isso para evitar fazer alocações
-intermediárias.
-
-Assim, teremos um contexto declarado localmente para tais casos:
-
-
-Esta é a nossa função de inicialização e a de finalização:
-
-
-A função de inicialização retorna falso se a inicialização falhar. A
-definição delas é:
-
-
-O contexto de alocação do OpenSSL é necessário na função de
-multiplicação:
-
-
-Que é definida como:
-
-
-Converter um número real de ponto fixo para um \monoespaco{double}
-requer realizar divisões e para isso também usamos o contexto:
-
-
-Como podemos retornar \monoespaco{INFINITY}, devemos inserir o
-cabeçalho matemático:
-
-\iniciocodigo
-@<Inclui Cabeçalhos (reticulado.h)@>=
-#include <math.h>
-@
-\fimcodigo
-
-Por fim, vamos definir também a função para inverter um número real
-representado em notação d eponto fixo:
-
+% TODO: Ajustar aqui.
 
 
 {\twelvebold \noindent 1. Preliminares: Matrizes}
@@ -1235,10 +1163,12 @@ struct matriz *nova_matriz_aux(int linha, int coluna, numero *valores,
       for(i = 0; i < linha; i ++)
         for(j = 0; j < coluna; j ++){
           inicializa_numero(le_matriz(nova, i, j));
-          if(i == j)
+          if(i == j){
             escreve_matriz_int(nova, i, j, 1);
-          else
+          }
+          else{
             escreve_matriz_int(nova, i, j, 0);
+          }
         }
     }
     else{ // Caso 3: Matriz nula
@@ -1344,7 +1274,7 @@ struct matriz_real *nova_matriz_real(struct matriz *A){
   }
   for(i = 0; i < total; i ++){
     inicializa_numero_real(nova -> valores[i]);
-    copia_numero_pra_real(nova -> valores[i], A -> valores[i]);
+    numero_real_de_numero(nova -> valores[i], A -> valores[i]);
   }
   return nova;
 }
@@ -1497,7 +1427,7 @@ Como estamos usando a função \monoespaco{memcpy}, devemos inserir a
 seguinte biblioteca:
 
 \iniciocodigo
-@<Inclui Cabeçalhos (reticulado.h)@>=
+@<Inclui Cabeçalhos (reticulado.h)@>+=
 #include <string.h>
 @
 \fimcodigo
@@ -1817,9 +1747,10 @@ gerar qualquer resposta.
 
 \iniciocodigo
 @<Declaração de Função (reticulado.h)@>+=
+/*
 bool resolve_equacao_linear(struct matriz_real *resposta,
                            struct matriz *A, struct matriz *b){
-  struct matriz_real *R;
+  struct matriz_real *R, *b_r;
   numero_real n;
   int i, j;
   if(resposta -> colunas != 1 || b - > colunas != 1 ||
@@ -1857,7 +1788,7 @@ bool resolve_equacao_linear(struct matriz_real *resposta,
     for(i = j + 1; i < R -> linhas; i ++){
       // Pivô: R[j][j]
       if(numero_real_pra_double(le_matriz(R, i, j)) != 0.0){
-        inverte_numero_real(n, le_matriz(R, j, j));
+        inverso_numero_real(n, le_matriz(R, j, j));
         multiplica_numero_real(n, n, le_matriz(R, j, j));
         neg_numero_real(n, n);
         soma_linha_e_multiplo_matriz_real(R, j, i, n);
@@ -1872,7 +1803,7 @@ bool resolve_equacao_linear(struct matriz_real *resposta,
                              le_matriz(resposta, j, 0));
       subtrai_numero_real(le_matriz(b_r, i, 0), le_matriz(b_r, i, 0), n);
     }
-    inverte_numero_real(n, le_matriz(R, i, i));
+    inverso_numero_real(n, le_matriz(R, i, i));
     multiplica_numero_real(le_matriz(resposta, i, 0), n,
                            le_matriz(b_r, i, 0);
   }
@@ -1881,6 +1812,7 @@ bool resolve_equacao_linear(struct matriz_real *resposta,
   finaliza_numero_real(n);
   return true;
 }
+*/
 @
 \fimcodigo
 

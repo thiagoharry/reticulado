@@ -58,17 +58,17 @@ void test_matrix_basic(void){
   for(i = 0; i < 5; i ++)
     for(j = 0; j < 5; j ++){
       if(i == j){
-	if(!numero_eh_igual_int(le_matriz(A, i, j), 1))
+	if(numero_pra_int(le_matriz(A, i, j)) != 1)
 	  ok = false;
       }
       else
-	if(!numero_eh_igual_int(le_matriz(A, i, j), 0)){
+	if(numero_pra_int(le_matriz(A, i, j)) != 0){
 	  printf("Erro: [%d, %d], %d\n", i, j, numero_pra_int(le_matriz(A, i, j)));
 	  ok = false;
 	}
-      if(!numero_eh_igual_int(le_matriz(B, i, j), 0))
+      if(numero_pra_int(le_matriz(B, i, j)) != 0)
 	ok = false;
-      if(!numero_eh_igual_int(le_matriz(C, i, j), 5))
+      if(numero_pra_int(le_matriz(C, i, j)) !=  5)
 	ok = false;
     }
   assert("Inicialização de Matrizes", ok);
@@ -76,11 +76,11 @@ void test_matrix_basic(void){
   for(i = 0; i < 5; i ++)
     for(j = 0; j < 5; j ++){
       if(i == j){
-	if(!numero_eh_igual_int(le_matriz(B, i, j), 6))
+	if(numero_pra_int(le_matriz(B, i, j)) != 6)
 	  ok = false;
       }
       else
-	if(!numero_eh_igual_int(le_matriz(B, i, j), 5))
+	if(numero_pra_int(le_matriz(B, i, j)) != 5)
 	  ok = false;
     }
   assert("Soma de Matrizes", ok);

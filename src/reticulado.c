@@ -2,23 +2,29 @@
 #line 111 "reticulado.tex"
 
 #include "reticulado.h"
-/*33:*/
-#line 743 "reticulado.tex"
+/*43:*/
+#line 921 "reticulado.tex"
+
+#if defined(NUMERO_EH_BN)
+#include <math.h> 
+#endif
+/*:43*//*53:*/
+#line 1190 "reticulado.tex"
 
 #include <stdlib.h> 
-/*:33*/
+/*:53*/
 #line 113 "reticulado.tex"
 
 
 
-/*21:*/
-#line 459 "reticulado.tex"
+/*16:*/
+#line 442 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 static BN_CTX*bn_context;
 #endif
-/*:21*//*46:*/
-#line 995 "reticulado.tex"
+/*:16*//*66:*/
+#line 1442 "reticulado.tex"
 
 static bool(*funcoes_multiplicacao_matricial[])(struct matriz*,
 struct matriz*,
@@ -27,8 +33,8 @@ struct matriz*)=
 
 NULL
 };
-/*:46*//*47:*/
-#line 1014 "reticulado.tex"
+/*:66*//*67:*/
+#line 1461 "reticulado.tex"
 
 static bool(*predicado_multiplicacao_matricial[])(struct matriz*,
 struct matriz*,
@@ -37,11 +43,11 @@ struct matriz*)=
 
 NULL
 };
-/*:47*/
+/*:67*/
 #line 116 "reticulado.tex"
 
-/*32:*/
-#line 697 "reticulado.tex"
+/*52:*/
+#line 1142 "reticulado.tex"
 
 struct matriz*nova_matriz_aux(int linha,int coluna,numero*valores,
 int t){
@@ -66,10 +72,12 @@ else if(linha==coluna&&t==1){
 for(i= 0;i<linha;i++)
 for(j= 0;j<coluna;j++){
 inicializa_numero(le_matriz(nova,i,j));
-if(i==j)
+if(i==j){
 escreve_matriz_int(nova,i,j,1);
-else
+}
+else{
 escreve_matriz_int(nova,i,j,0);
+}
 }
 }
 else{
@@ -81,32 +89,16 @@ numero_de_int(nova->valores[i],0);
 }
 return nova;
 }
-/*:32*//*43:*/
-#line 931 "reticulado.tex"
+/*:52*//*63:*/
+#line 1378 "reticulado.tex"
 
 bool multiplica_simples_matriz(struct matriz*A,struct matriz*B,
 struct matriz*C);
-/*:43*/
+/*:63*/
 #line 117 "reticulado.tex"
 
-/*18:*/
-#line 402 "reticulado.tex"
-
-#if defined(NUMERO_EH_BN)
-bool numero_real_eh_igual_int(numero_real r,int a){
-BIGNUM*tmp;
-int mod;
-bool result;
-tmp= BN_new();
-BN_set_word(tmp,a);
-BN_mul_word(tmp,1000000000000000000lu);
-result= (BN_cmp(tmp,r)==0);
-BN_clear_free(tmp);
-return result;
-}
-#endif
-/*:18*//*23:*/
-#line 479 "reticulado.tex"
+/*19:*/
+#line 473 "reticulado.tex"
 
 bool inicializa_api_reticulado(void){
 #if defined(NUMERO_EH_BN)
@@ -121,16 +113,78 @@ void finaliza_api_reticulado(void){
 BN_CTX_free(bn_context);
 #endif
 }
-/*:23*//*25:*/
-#line 510 "reticulado.tex"
+/*:19*//*21:*/
+#line 508 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 void multiplica_numero(numero r,numero a,numero b){
 BN_mul(r,a,b,bn_context);
 }
+void divide_numero(numero r,numero a,numero b){
+BN_div(r,NULL,a,b,bn_context);
+}
 #endif
-/*:25*//*27:*/
-#line 530 "reticulado.tex"
+/*:21*//*24:*/
+#line 553 "reticulado.tex"
+
+#if defined(NUMERO_EH_BN)
+void inverso_numero_real(numero_real r,numero_real a){
+numero_real um;
+inicializa_numero_real(um);
+numero_real_de_int(um,1);
+divide_numero_real(r,um,a);
+finaliza_numero_real(um);
+}
+#endif
+/*:24*//*28:*/
+#line 632 "reticulado.tex"
+
+#if defined(NUMERO_EH_MPZ)
+void numero_de_numero_real(numero n,numero_real r){
+mpz_t aux;
+mpz_init(aux);
+mpq_get_num(n,r);
+mpq_get_den(aux,r);
+mpz_tdiv_q(n,n,aux);
+mpz_clear(aux);
+}
+#endif
+/*:28*//*34:*/
+#line 748 "reticulado.tex"
+
+#if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
+#if __SIZEOF_INT__ >  4
+int __numero_real_pra_int(numero_real r){
+mpz_t aux,a;
+int ret;
+mpz_init(aux);
+mpz_init(a);
+mpq_get_num(a,r);
+mpq_get_den(aux,r);
+mpz_tdiv_q(a,a,aux);
+ret= (int)mpz_get_ui(a);
+mpz_clear(aux);
+mpz_clear(a);
+return ret;
+}
+#endif
+#endif
+/*:34*//*37:*/
+#line 801 "reticulado.tex"
+
+#if defined(NUMERO_EH_BN)
+int numero_real_pra_int(numero_real r){
+int ret;
+numero aux;
+inicializa_numero(aux);
+numero_de_numero_real(aux,r);
+ret= numero_pra_int(aux);
+finaliza_numero(aux);
+return ret;
+}
+#endif
+/*:37*//*42:*/
+#line 890 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 double numero_real_pra_double(numero_real r){
@@ -156,8 +210,22 @@ BN_clear_free(dividendo);
 return frac;
 }
 #endif
-/*:27*//*35:*/
-#line 763 "reticulado.tex"
+/*:42*//*48:*/
+#line 993 "reticulado.tex"
+
+#if defined(NUMERO_EH_BN)
+int compara_numero_numero_real(numero a,numero_real b){
+numero_real aux;
+int ret;
+inicializa_numero_real(aux);
+numero_real_de_numero(aux,a);
+ret= compara_numero_real(aux,b);
+finaliza_numero_real(aux);
+return ret;
+}
+#endif
+/*:48*//*55:*/
+#line 1210 "reticulado.tex"
 
 struct matriz*nova_matriz(int linha,int coluna,numero*valores){
 return nova_matriz_aux(linha,coluna,valores,0);
@@ -168,8 +236,8 @@ return nova_matriz_aux(linha,coluna,NULL,0);
 struct matriz*nova_matriz_identidade(int dim){
 return nova_matriz_aux(dim,dim,NULL,1);
 }
-/*:35*//*37:*/
-#line 786 "reticulado.tex"
+/*:55*//*57:*/
+#line 1233 "reticulado.tex"
 
 void destroi_matriz(struct matriz*A){
 int i,total= A->linhas*A->colunas;
@@ -179,8 +247,8 @@ finaliza_numero(A->valores[i]);
 free(A->valores);
 free(A);
 }
-/*:37*//*39:*/
-#line 814 "reticulado.tex"
+/*:57*//*59:*/
+#line 1261 "reticulado.tex"
 
 struct matriz_real*nova_matriz_real(struct matriz*A){
 int i,total= A->linhas*A->colunas;
@@ -197,12 +265,12 @@ return NULL;
 }
 for(i= 0;i<total;i++){
 inicializa_numero_real(nova->valores[i]);
-copia_numero_pra_real(nova->valores[i],A->valores[i]);
+numero_real_de_numero(nova->valores[i],A->valores[i]);
 }
 return nova;
 }
-/*:39*//*40:*/
-#line 840 "reticulado.tex"
+/*:59*//*60:*/
+#line 1287 "reticulado.tex"
 
 void destroi_matriz_real(struct matriz_real*A){
 int i,total= A->linhas*A->colunas;
@@ -212,8 +280,8 @@ finaliza_numero_real(A->valores[i]);
 free(A->valores);
 free(A);
 }
-/*:40*//*42:*/
-#line 874 "reticulado.tex"
+/*:60*//*62:*/
+#line 1321 "reticulado.tex"
 
 bool soma_matriz(struct matriz*A,struct matriz*B,struct matriz*C){
 int i,total= A->linhas*A->colunas;
@@ -225,8 +293,8 @@ for(i= 0;i<total;i++)
 soma_numero(A->valores[i],B->valores[i],C->valores[i]);
 return true;
 }
-/*:42*//*44:*/
-#line 943 "reticulado.tex"
+/*:62*//*64:*/
+#line 1390 "reticulado.tex"
 
 bool multiplica_simples_matriz(struct matriz*A,struct matriz*B,
 struct matriz*C){
@@ -260,8 +328,8 @@ destroi_matriz(resultado);
 }
 return true;
 }
-/*:44*//*49:*/
-#line 1039 "reticulado.tex"
+/*:64*//*69:*/
+#line 1486 "reticulado.tex"
 
 bool multiplica_matriz(struct matriz*A,struct matriz*B,
 struct matriz*C){
@@ -271,8 +339,8 @@ if(predicado_multiplicacao_matricial[i](A,B,C))
 return funcoes_multiplicacao_matricial[i](A,B,C);
 return multiplica_simples_matriz(A,B,C);
 }
-/*:49*//*51:*/
-#line 1146 "reticulado.tex"
+/*:69*//*71:*/
+#line 1593 "reticulado.tex"
 
 bool troca_linha_matriz_real(struct matriz_real*A,int pos1,int pos2){
 numero_real*buffer;
@@ -290,8 +358,8 @@ sizeof(numero_real)*A->colunas);
 free(buffer);
 return true;
 }
-/*:51*//*53:*/
-#line 1208 "reticulado.tex"
+/*:71*//*73:*/
+#line 1655 "reticulado.tex"
 
 bool multiplica_linha_matriz_real(struct matriz_real*A,int pos,
 numero_real escalar){
@@ -304,8 +372,8 @@ multiplica_numero_real(le_matriz(A,pos,i),le_matriz(A,pos,i),
 escalar);
 return true;
 }
-/*:53*//*55:*/
-#line 1238 "reticulado.tex"
+/*:73*//*75:*/
+#line 1685 "reticulado.tex"
 
 bool soma_linha_e_multiplo_matriz_real(struct matriz_real*A,int pos1,
 int pos2,numero_real escalar){
@@ -322,7 +390,7 @@ aux);
 finaliza_numero_real(aux);
 return true;
 }
-/*:55*/
+/*:75*/
 #line 118 "reticulado.tex"
 
 /*:2*/
