@@ -39,6 +39,30 @@ void assert(char *descricao, bool valor){
   }
 }
 
+void test_numbers(void){
+  numero a, b;
+  numero_real a_r, b_r;
+  inicializa_numero(a);
+  inicializa_numero(b);
+  inicializa_numero_real(a_r);
+  inicializa_numero_real(b_r);
+  numero_de_int(a, 1);
+  numero_real_de_int(a_r, 1);
+  neg_numero(b, a);
+  neg_numero_real(b_r, a_r);
+  assert("Números: obter -a", numero_pra_int(a) == 1 &&
+	 numero_pra_int(b) == -1 && numero_real_pra_double(a_r) == 1.0 &&
+	 numero_real_pra_double(b_r) == -1.0);
+  numero_real_de_int(a_r, 2);
+  numero_real_de_int(b_r, -4);
+  divide_numero_real(a_r, a_r, b_r);
+  assert("Números reais: divisão", numero_real_pra_double(a_r) == -0.5);
+  finaliza_numero(a);
+  finaliza_numero(b);
+  finaliza_numero_real(a_r);
+  finaliza_numero_real(b_r);
+}
+
 void test_matrix_basic(void){
   struct matriz *A, *B, *C;
   numero valores[25];
@@ -91,19 +115,29 @@ void test_matrix_basic(void){
     A = nova_matriz_nula(4, 3);
     B = nova_matriz_identidade(3);
     C = nova_matriz_nula(4, 3);
-    
-    escreve_matriz_int(A, 0, 0, 1); escreve_matriz_int(A, 0, 1, 0);
-    escreve_matriz_int(A, 0, 2, 1); escreve_matriz_int(A, 1, 0, 2);
-    escreve_matriz_int(A, 1, 1, 1); escreve_matriz_int(A, 1, 2, 1);
-    escreve_matriz_int(A, 2, 0, 0); escreve_matriz_int(A, 2, 1, 1);
-    escreve_matriz_int(A, 2, 2, 1); escreve_matriz_int(A, 3, 0, 1);
-    escreve_matriz_int(A, 3, 1, 1); escreve_matriz_int(A, 3, 2, 2);
-    
-    escreve_matriz_int(B, 0, 0, 1); escreve_matriz_int(B, 0, 1, 2);
-    escreve_matriz_int(B, 0, 2, 1); escreve_matriz_int(B, 1, 0, 2);
-    escreve_matriz_int(B, 1, 1, 3); escreve_matriz_int(B, 1, 2, 1);
-    escreve_matriz_int(B, 2, 0, 4); escreve_matriz_int(B, 2, 1, 2);
-    escreve_matriz_int(B, 2, 2, 2);
+
+    numero_de_int(le_matriz(A, 0, 0), 1);
+    numero_de_int(le_matriz(A, 0, 1), 0);
+    numero_de_int(le_matriz(A, 0, 2), 1);
+    numero_de_int(le_matriz(A, 1, 0), 2);
+    numero_de_int(le_matriz(A, 1, 1), 1);
+    numero_de_int(le_matriz(A, 1, 2), 1);
+    numero_de_int(le_matriz(A, 2, 0), 0);
+    numero_de_int(le_matriz(A, 2, 1), 1);
+    numero_de_int(le_matriz(A, 2, 2), 1);
+    numero_de_int(le_matriz(A, 3, 0), 1);
+    numero_de_int(le_matriz(A, 3, 1), 1);
+    numero_de_int(le_matriz(A, 3, 2), 2);
+
+    numero_de_int(le_matriz(B, 0, 0), 1);
+    numero_de_int(le_matriz(B, 0, 1), 2);
+    numero_de_int(le_matriz(B, 0, 2), 1);
+    numero_de_int(le_matriz(B, 1, 0), 2);
+    numero_de_int(le_matriz(B, 1, 1), 3);
+    numero_de_int(le_matriz(B, 1, 2), 1);
+    numero_de_int(le_matriz(B, 2, 0), 4);
+    numero_de_int(le_matriz(B, 2, 1), 2);
+    numero_de_int(le_matriz(B, 2, 2), 2);
 
     ok = multiplica_matriz(C, A, B);
     assert("Multiplicação de Matrizes", ok &&
@@ -125,7 +159,7 @@ void test_matrix_basic(void){
     }
 }
 
-void test_matrix_solve_equation(void){
+void test_matrix_line_operations(void){
   struct matriz *A;
   struct matriz_real *R;
   numero_real n;
@@ -207,14 +241,48 @@ void test_matrix_solve_equation(void){
   finaliza_numero_real(n);
 }
 
+void test_linear_equation(void){
+  struct matriz *A, *r;
+  struct matriz_real *x;
+  A = nova_matriz_identidade(3);
+  r = nova_matriz_nula(3, 1);
+  x = nova_matriz_real(r);
+  /*
+    x + 3y -2z = 5
+      
+  */
+  numero_de_int(le_matriz(A, 0, 0), 1);
+  numero_de_int(le_matriz(A, 0, 1), 3);
+  numero_de_int(le_matriz(A, 0, 2), -2);
+  numero_de_int(le_matriz(A, 1, 0), 3);
+  numero_de_int(le_matriz(A, 1, 1), 5);
+  numero_de_int(le_matriz(A, 1, 2), 6);
+  numero_de_int(le_matriz(A, 2, 0), 2);
+  numero_de_int(le_matriz(A, 2, 1), 4);
+  numero_de_int(le_matriz(A, 2, 2), 3);
+
+  numero_de_int(le_matriz(r, 0, 0), 5);
+  numero_de_int(le_matriz(r, 1, 0), 7);
+  numero_de_int(le_matriz(r, 2, 0), 8);
+  resolve_equacao_linear(x, A, r);
+  assert("Resolução de equação linear",
+	 numero_real_pra_int(le_matriz(x, 0, 0)) == -15 &&
+	 numero_real_pra_int(le_matriz(x, 1, 0)) == 8 &&
+	 numero_real_pra_int(le_matriz(x, 2, 0)) == 2);
+  destroi_matriz(A);
+  destroi_matriz(r);
+  destroi_matriz_real(x);
+}
 
 int main(int argc, char **argv){
   if(!inicializa_api_reticulado()){
     printf("ERRO: Falha na inicialização.\n");
     exit(1);
   }
+  test_numbers();
   test_matrix_basic();
-  test_matrix_solve_equation();
+  test_matrix_line_operations();
+  test_linear_equation();
   imprime_resultado();
   finaliza_api_reticulado();
   return 0;

@@ -11,7 +11,7 @@ extern"C"{
 
 #include <stdbool.h> 
 /*:18*//*65:*/
-#line 1430 "reticulado.tex"
+#line 1423 "reticulado.tex"
 
 #include <string.h> 
 /*:65*/
@@ -164,11 +164,12 @@ typedef BIGNUM*numero_real;
         (multiplica_numero(r, a, b),    \
          BN_div_word(r, 1000000000000000000lu))
 #define divide_numero_real(r, a, b)     \
-        (divide_numero(r, a, b),    \
-         BN_mul_word(r, 1000000000000000000lu))
+        (BN_div_word(b, 1000000000000000000lu), \
+         divide_numero(r, a, b),                \
+         BN_mul_word(b, 1000000000000000000lu))
 #endif
 /*:22*//*25:*/
-#line 572 "reticulado.tex"
+#line 573 "reticulado.tex"
 
 #if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
 #if defined(NUMERO_EH_INT)
@@ -182,7 +183,7 @@ typedef BIGNUM*numero_real;
 #define copia_numero_real(r, a) (r =  a)
 #endif
 /*:25*//*26:*/
-#line 591 "reticulado.tex"
+#line 592 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
 #if defined(NUMERO_EH_MPZ)
@@ -197,7 +198,7 @@ typedef BIGNUM*numero_real;
 #define copia_numero_real(r, a) mpq_set(r, a)
 #endif
 /*:26*//*29:*/
-#line 650 "reticulado.tex"
+#line 651 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 #define copia_numero(r, a) BN_copy(r, a)
@@ -210,7 +211,7 @@ typedef BIGNUM*numero_real;
            BN_div_word(r, 1000000000000000000lu))
 #endif
 /*:29*//*30:*/
-#line 679 "reticulado.tex"
+#line 680 "reticulado.tex"
 
 #if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
 #define numero_de_int(r, a) (r =  (numero) a)
@@ -219,7 +220,7 @@ typedef BIGNUM*numero_real;
 #define numero_real_pra_int(r) ((int) r)
 #endif
 /*:30*//*31:*/
-#line 693 "reticulado.tex"
+#line 694 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ)
 #define numero_de_int(r, a) mpz_set_si(r, a)
@@ -234,7 +235,7 @@ typedef BIGNUM*numero_real;
 #define numero_real_pra_int(r) ((int) mpq_get_d(r))
 #endif
 /*:31*//*32:*/
-#line 721 "reticulado.tex"
+#line 722 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
 #if __SIZEOF_INT__ <= 4
@@ -244,20 +245,20 @@ typedef BIGNUM*numero_real;
 #endif
 #endif
 /*:32*//*35:*/
-#line 773 "reticulado.tex"
+#line 774 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 #define numero_de_int(r, a)                                     \
-          BN_set_word(r, (unsigned long) ((a<0)?(-a):(a)));    \
-          BN_set_negative(r, (a < 0))
+          {BN_set_word(r, (unsigned long) ((a<0)?(-a):(a)));    \
+           BN_set_negative(r, (a < 0));}
 #define numero_real_de_int(r, a)   \
-          numero_de_int(r, a);  \
-          BN_mul_word(r, (unsigned long) 1000000000000000000)
+          {numero_de_int(r, a);  \
+           BN_mul_word(r, (unsigned long) 1000000000000000000);}
 #define numero_pra_int(r) ((BN_is_negative(r))?(-((int) BN_get_word(r))):\
                                               ((int) BN_get_word(r)))
 #endif
 /*:35*//*38:*/
-#line 822 "reticulado.tex"
+#line 823 "reticulado.tex"
 
 #if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
 #if defined(NUMERO_EH_INT)
@@ -271,7 +272,7 @@ typedef BIGNUM*numero_real;
 #define numero_real_pra_double(r) ((double) r)
 #endif
 /*:38*//*39:*/
-#line 841 "reticulado.tex"
+#line 842 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ)
 #define numero_de_double(r, a) (mpz_set_d(r, a))
@@ -286,7 +287,7 @@ typedef BIGNUM*numero_real;
 #define numero_real_pra_double(r) (mpq_get_d(r))
 #endif
 /*:39*//*40:*/
-#line 863 "reticulado.tex"
+#line 864 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 #define numero_de_double(r, a)                                      \
@@ -299,7 +300,7 @@ typedef BIGNUM*numero_real;
                                    ((double) BN_get_word(r)))
 #endif
 /*:40*//*44:*/
-#line 937 "reticulado.tex"
+#line 939 "reticulado.tex"
 
 #if defined(NUMERO_EH_INT) || defined(NUMERO_EH_DOUBLE)
 #define compara_numero(a, b) ((a==b)?(0):((a> b)?(1):(-1)))
@@ -308,7 +309,7 @@ typedef BIGNUM*numero_real;
 #define compara_numero_real_numero(a, b) (-compara_numero_numero_real(b, a)
 #endif
 /*:44*//*45:*/
-#line 950 "reticulado.tex"
+#line 952 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ)
 #define compara_numero(a, b) mpz_cmp(a, b)
@@ -323,7 +324,7 @@ typedef BIGNUM*numero_real;
 #define compara_numero_real_numero(a, b) mpq_cmp(a, b)
 #endif
 /*:45*//*46:*/
-#line 969 "reticulado.tex"
+#line 971 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 #define compara_numero(a, b) BN_cmp(a, b)
@@ -332,26 +333,22 @@ typedef BIGNUM*numero_real;
 #define compara_numero_real_numero(a, b) (-compara_numero_numero_real(a,b))
 #endif
 /*:46*//*51:*/
-#line 1119 "reticulado.tex"
+#line 1116 "reticulado.tex"
 
 
 #define le_matriz(A, i, j) A -> valores[i * A -> colunas + j]
-#define escreve_matriz(A, i, j, v)                    \
-        copia_numero(A -> valores[i * A -> colunas + j], v)
-#define escreve_matriz_int(A, i, j, v)                \
-        numero_de_int(A -> valores[i * A -> colunas + j], v)
 /*:51*/
 #line 96 "reticulado.tex"
 
 /*49:*/
-#line 1089 "reticulado.tex"
+#line 1086 "reticulado.tex"
 
 struct matriz{
 int linhas,colunas;
 numero*valores;
 };
 /*:49*//*50:*/
-#line 1103 "reticulado.tex"
+#line 1100 "reticulado.tex"
 
 struct matriz_real{
 int linhas,colunas;
@@ -373,19 +370,19 @@ void multiplica_numero(numero r,numero a,numero b);
 void divide_numero(numero r,numero a,numero b);
 #endif
 /*:20*//*23:*/
-#line 542 "reticulado.tex"
+#line 543 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 void inverso_numero_real(numero_real r,numero_real a);
 #endif
 /*:23*//*27:*/
-#line 622 "reticulado.tex"
+#line 623 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ)
 void numero_de_numero_real(numero z,numero_real r);
 #endif
 /*:27*//*33:*/
-#line 736 "reticulado.tex"
+#line 737 "reticulado.tex"
 
 #if defined(NUMERO_EH_MPZ) || defined(NUMERO_EH_MPQ)
 #if __SIZEOF_INT__ >  4
@@ -393,136 +390,67 @@ int __numero_real_pra_int(numero_real r);
 #endif
 #endif
 /*:33*//*36:*/
-#line 793 "reticulado.tex"
+#line 794 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 int numero_real_pra_int(numero_real r);
 #endif
 /*:36*//*41:*/
-#line 882 "reticulado.tex"
+#line 883 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 double numero_real_pra_double(numero_real r);
 #endif
 /*:41*//*47:*/
-#line 985 "reticulado.tex"
+#line 987 "reticulado.tex"
 
 #if defined(NUMERO_EH_BN)
 int compara_numero_numero_real(numero a,numero_real b);
 #endif
 /*:47*//*54:*/
-#line 1199 "reticulado.tex"
+#line 1192 "reticulado.tex"
 
 struct matriz*nova_matriz(int linha,int coluna,numero*valores);
 struct matriz*nova_matriz_nula(int linha,int coluna);
 struct matriz*nova_matriz_identidade(int dim);
 /*:54*//*56:*/
-#line 1227 "reticulado.tex"
+#line 1220 "reticulado.tex"
 
 void destroi_matriz(struct matriz*A);
 /*:56*//*58:*/
-#line 1254 "reticulado.tex"
+#line 1247 "reticulado.tex"
 
 struct matriz_real*nova_matriz_real(struct matriz*A);
 void destroi_matriz_real(struct matriz_real*A);
 /*:58*//*61:*/
-#line 1309 "reticulado.tex"
+#line 1302 "reticulado.tex"
 
 bool soma_matriz(struct matriz*A,struct matriz*B,struct matriz*C);
 /*:61*//*68:*/
-#line 1479 "reticulado.tex"
+#line 1472 "reticulado.tex"
 
 bool multiplica_matriz(struct matriz*A,struct matriz*B,
 struct matriz*C);
 /*:68*//*70:*/
-#line 1583 "reticulado.tex"
+#line 1576 "reticulado.tex"
 
 bool troca_linha_matriz_real(struct matriz_real*A,int pos1,int pos2);
 /*:70*//*72:*/
-#line 1645 "reticulado.tex"
+#line 1638 "reticulado.tex"
 
 bool multiplica_linha_matriz_real(struct matriz_real*A,int pos1,
 numero_real escalar);
 /*:72*//*74:*/
-#line 1677 "reticulado.tex"
+#line 1670 "reticulado.tex"
 
 bool soma_linha_e_multiplo_matriz_real(struct matriz_real*A,int pos1,
 int pos2,numero_real escalar);
 /*:74*//*76:*/
-#line 1734 "reticulado.tex"
+#line 1727 "reticulado.tex"
 
 bool resolve_equacao_linear(struct matriz_real*resposta,
 struct matriz*A,struct matriz*b);
-/*:76*//*77:*/
-#line 1749 "reticulado.tex"
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*:77*/
+/*:76*/
 #line 98 "reticulado.tex"
 
 #ifdef __cplusplus

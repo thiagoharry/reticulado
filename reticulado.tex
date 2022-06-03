@@ -526,8 +526,9 @@ definir as macros que realização as funções relacionadas no OpenSSL:
         (multiplica_numero(r, a, b),    \
          BN_div_word(r, 1000000000000000000lu))
 #define divide_numero_real(r, a, b)     \
-        (divide_numero(r, a, b),    \
-         BN_mul_word(r, 1000000000000000000lu))
+        (BN_div_word(b, 1000000000000000000lu), \
+         divide_numero(r, a, b),                \
+         BN_mul_word(b, 1000000000000000000lu))
 #endif
 @
 \fimcodigo
@@ -539,7 +540,7 @@ uma variável auxiliar, e por isso será melhor representado como
 função:
 
 \iniciocodigo
-@<Declaração de Função (reticulado.h)@>=
+@<Declaração de Função (reticulado.h)@>+=
 #if defined(NUMERO_EH_BN)
 void inverso_numero_real(numero_real r, numero_real a);
 #endif
@@ -619,7 +620,7 @@ operação é um pouco mais complexa, será definida como uma função, não
 como uma macro. A assinatura da função é:
 
 \iniciocodigo
-@<Declaração de Função (reticulado.h)@>=
+@<Declaração de Função (reticulado.h)@>+=
 #if defined(NUMERO_EH_MPZ)
 void numero_de_numero_real(numero z, numero_real r);
 #endif
@@ -773,11 +774,11 @@ com a bilbioteca OpenSSL:
 @<Macros Gerais (reticulado.h)@>+=
 #if defined(NUMERO_EH_BN)
 #define numero_de_int(r, a)                                     \
-          BN_set_word(r, (unsigned long) ((a<0)?(-a):(a)));    \
-          BN_set_negative(r, (a < 0))
+          {BN_set_word(r, (unsigned long) ((a<0)?(-a):(a)));    \
+           BN_set_negative(r, (a < 0));}
 #define numero_real_de_int(r, a)   \
-          numero_de_int(r, a);  \
-          BN_mul_word(r, (unsigned long) 1000000000000000000)
+          {numero_de_int(r, a);  \
+           BN_mul_word(r, (unsigned long) 1000000000000000000);}
 #define numero_pra_int(r) ((BN_is_negative(r))?(-((int) BN_get_word(r))):\
                                               ((int) BN_get_word(r)))
 #endif
@@ -893,6 +894,7 @@ double numero_real_pra_double(numero_real r){
   BIGNUM *divisao, *resto, *dividendo;
   int mod;
   double frac;
+  bool negative = BN_is_negative(r);
   divisao = BN_new();
   resto = BN_new();
   dividendo = BN_new();
@@ -909,7 +911,7 @@ double numero_real_pra_double(numero_real r){
   BN_clear_free(divisao);
   BN_clear_free(resto);
   BN_clear_free(dividendo);
-  return frac;  
+  return (negative)?(-frac):(frac);  
 }
 #endif
 @
@@ -1003,11 +1005,6 @@ int compara_numero_numero_real(numero a, numero_real b){
 }
 #endif
 @
-
-
-
-% TODO: Ajustar aqui.
-
 
 {\twelvebold \noindent 1. Preliminares: Matrizes}
 
@@ -1112,17 +1109,13 @@ struct matriz_real{
 Note que estamos armazenando todos os valores da matriz em uma
 sequência de memória de uma só dimensão. Fazemos isso para deixar o
 armazenamento mais eficiente do conteúdo das matrizes. Mas para
-podermos ler e escrever o conteúdo da matriz, vamos definir as
-seguintes macros que irão nos ajudar:
+podermos acessar o conteúdo da matriz, vamos definir a seguinte
+macro para nos ajudar:
 
 \iniciocodigo
 @<Macros Gerais (reticulado.h)@>+=
 // i: Valor da linha     // j: Valor da coluna
 #define le_matriz(A, i, j) A -> valores[i * A -> colunas + j]
-#define escreve_matriz(A, i, j, v)                    \
-        copia_numero(A -> valores[i * A -> colunas + j], v)
-#define escreve_matriz_int(A, i, j, v)                \
-        numero_de_int(A -> valores[i * A -> colunas + j], v)
 @
 \fimcodigo
 
@@ -1164,10 +1157,10 @@ struct matriz *nova_matriz_aux(int linha, int coluna, numero *valores,
         for(j = 0; j < coluna; j ++){
           inicializa_numero(le_matriz(nova, i, j));
           if(i == j){
-            escreve_matriz_int(nova, i, j, 1);
+            numero_de_int(le_matriz(nova, i, j), 1);
           }
           else{
-            escreve_matriz_int(nova, i, j, 0);
+            numero_de_int(le_matriz(nova, i, j), 0);
           }
         }
     }
@@ -1737,39 +1730,42 @@ bool resolve_equacao_linear(struct matriz_real *resposta,
 @
 \fimcodigo
 
-Caso a equação não possa ser resolvia, esta função retornará falso. Em
-todos os demais casos, retornará verdadeiro e colocará a solução na
-matriz resposta. A matriz resposta deve ter uma única coluna e seu
-número de linhas deve ser o mesmo que $A$. O número de colunas de $b$
-também deve ser 1 e seu número de linhas deve ser o mesmo que $A$. Se
-isso não estiver satisfeito, então a função também retornará falso sem
-gerar qualquer resposta.
+Caso a equação não possa ser resolvida, esta função retornará
+falso. Em todos os demais casos, retornará verdadeiro e colocará a
+solução na matriz resposta. A matriz resposta deve ter uma única
+coluna e seu número de linhas deve ser o mesmo que $A$. O número de
+colunas de $b$ também deve ser 1 e seu número de linhas deve ser o
+mesmo que $A$. Já $A$ deve ser uma matriz quadrada. Se isso não
+estiver satisfeito, então a função também retornará falso sem gerar
+qualquer resposta.
 
 \iniciocodigo
-@<Declaração de Função (reticulado.h)@>+=
-/*
+@<Definição de Funções (reticulado.c)@>+=
 bool resolve_equacao_linear(struct matriz_real *resposta,
                            struct matriz *A, struct matriz *b){
-  struct matriz_real *R, *b_r;
+  struct matriz_real *U, *b_r;
   numero_real n;
   int i, j;
+  // Parte 1: Inicialização
   if(resposta -> colunas != 1 || b - > colunas != 1 ||
-     resposta -> linhas != A -> linhas || b -> linhas != A -> linhas)
+     resposta -> linhas != A -> linhas || b -> linhas != A -> linhas ||
+     A -> linhas != A -> colunas)
     return false;
-  R = nova_matriz_real(A);
+  U = nova_matriz_real(A);
   b_r = nova_matriz_real(b);
   inicializa_numero_real(n);
-  if(R == NULL || b_r == NULL)
+  if(U == NULL || b_r == NULL)
     return false;
-  for(j = 0; j < R -> colunas; j ++){
+  // Parte 2: Obter matriz U
+  for(j = 0; j < U -> colunas; j ++){
     // Fazer a troca de linhas se a diagonal desta linha for zero:
-    if(numero_real_pra_double(le_matriz(R, j, j)) == 0.0){
+    if(numero_real_pra_double(le_matriz(U, j, j)) == 0.0){
       int k;
-      for(k = j + 1; k < R -> linhas; k ++){
-        if(numero_real_pra_double(le_matriz(R, k, j)) != 0.0){
-          if(!troca_linha_matriz_real(R, k, j) ||
+      for(k = j + 1; k < U -> linhas; k ++){
+        if(numero_real_pra_double(le_matriz(U, k, j)) != 0.0){
+          if(!troca_linha_matriz_real(U, k, j) ||
              !troca_linha_matriz_real(b_r, k, j)){
-            destroi_matriz_real(R);
+            destroi_matriz_real(U);
             destroi_matriz_real(b_r);
             finaliza_numero_real(n);
             return false;
@@ -1777,45 +1773,84 @@ bool resolve_equacao_linear(struct matriz_real *resposta,
           break;
         }
         // Se não for possível fazer a troca de linhas, não há solução:
-        if(numero_real_pra_double(le_matriz(R, j, j)) == 0.0){
-          destroi_matriz_real(R);
+        if(numero_real_pra_double(le_matriz(U, j, j)) == 0.0){
+          destroi_matriz_real(U);
           destroi_matriz_real(b_r);
           finaliza_numero_real(n);
           return false;
         }
       }
     }
-    for(i = j + 1; i < R -> linhas; i ++){
-      // Pivô: R[j][j]
-      if(numero_real_pra_double(le_matriz(R, i, j)) != 0.0){
-        inverso_numero_real(n, le_matriz(R, j, j));
-        multiplica_numero_real(n, n, le_matriz(R, j, j));
-        neg_numero_real(n, n);
-        soma_linha_e_multiplo_matriz_real(R, j, i, n);
-        soma_linha_e_multiplo_matriz_real(b_r, j, i, n);
+    for(i = j + 1; i < U -> linhas; i ++){
+      // Pivô: U[j][j]
+      if(numero_real_pra_double(le_matriz(U, i, j)) != 0.0){
+        neg_numero_real(n, le_matriz(U, i, j));
+        divide_numero_real(n, n, le_matriz(U, j, j));
+        soma_linha_e_multiplo_matriz_real(U, i, j, n);
+        soma_linha_e_multiplo_matriz_real(b_r, i, j, n);
       }
     }
   }
+  // Parte 3: Resolução
   // A matriz ficou com todos os elementos abaixo da diagonal nulos.
   for(i = resposta -> linhas - 1; i >=0; i --){
     for(j = resposta -> linhas - 1; j > i; j --){
-      multiplica_numero_real(n, le_matriz(R, i, j),
+      multiplica_numero_real(n, le_matriz(U, i, j),
                              le_matriz(resposta, j, 0));
       subtrai_numero_real(le_matriz(b_r, i, 0), le_matriz(b_r, i, 0), n);
     }
-    inverso_numero_real(n, le_matriz(R, i, i));
+    inverso_numero_real(n, le_matriz(U, i, i));
     multiplica_numero_real(le_matriz(resposta, i, 0), n,
-                           le_matriz(b_r, i, 0);
+                           le_matriz(b_r, i, 0));
   }
-  destroi_matriz_real(R);
+  // Parte 4: Finalização
+  destroi_matriz_real(U);
   destroi_matriz_real(b_r);
   finaliza_numero_real(n);
   return true;
 }
-*/
 @
 \fimcodigo
 
+O código acima é composto por quatro partes. A primeira parte é a
+inicialização. Nele, nós checamos se as matrizes de entrada tem
+tamanhos adequados para a operação e realizamos a alocação da matriz
+$U$ e $b_r$. A matriz $U$ iniciará sendo uma cópia da matriz $A$, mas
+convertendo seus valores para reais. Enquanto a matriz $b_r$ começará
+como cópia da matriz $b$, também convertendo seus valores para
+reais.
+
+Ao longo da execução do código iremos modificar $U$ por meio
+das operações elementares de linhas para que todos os valores abaixo
+de sua diagonal principal sejam zero. Por causa disso ela é chamada de
+matriz $U$ (``upper''). Essa transformação é feita na parte 2.
+
+A parte 2 consiste em um laço no qual atualizamos o valor $j$. O
+número de iterações é o número de colunas de $U$. A invariante deste
+laço é que em todas as colunas já percorridas de $U$, os valores
+abaixo da diagonal principal são nulos. Para isso, começamos dentro
+deste laço verificando a diagonal da colunas atual. Se ela for nula,
+trocamos a posição da linha dela com outra que estiver abaixo e se
+isso não for possível, desistimos. O problema não tem solução.
+
+Assumindo que não precisamos desistir, assumimos que nosso pivô é o
+elemento da diagonal principal indicado pela coluna $j$. Percorremos
+então um outro laço, desta vez iterando sobre a variável $i$. Este
+laço irá iterar sobre cada um dos elementos imediatamente abaixo do
+pivô. Queremos deixar cada um deles igual a zero. Para isso, dado o
+pivô $p$ e dado este elemento $x$ se ele ainda já não for nulo,
+somamos sua linha com a linha de $p$ multiplicada pelo escalar $-x/p$.
+
+Note que ao fazer isso, os elementos antes da coluna de $p$ em sua
+linha são todos nulos. Então, essa última operação irá perturbar
+somente elementos que estão da coluna $j$ pra diante. E ele irá tornar
+nulo todos os elementos da coluna $j$ abaixo da diagonal
+principal. Portanto, isso é o que garantirá a invariante do laço da
+parte 2.
+
+
+multiplicamos a linha do elemento $x$ pelo escalar $-p/x$ e em seguida
+somamos cada um dos elementos da linha de $p$ com o da linha de $x$.
 
 % XXX
 
